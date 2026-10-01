@@ -77,6 +77,18 @@ Each replica advertises its own address. When `BIND_ADDR` is `0.0.0.0` and
 - Restarting or sealing a replica drops the terminals it was serving; people
   press **Reconnect**, and the UI retries reads on its own.
 
+## Infrastructure runs across replicas
+
+- Each replica keeps its own bare clone of a repository (`AUTOMATION_DIR`) and
+  fetches on demand, so a run started anywhere finds its commit.
+- A run executes on the replica that started it, with a heartbeat. Output,
+  plans and state go to shared storage, so **WatchRun** follows a run from any
+  replica, and **Cancel** sets a flag that the running replica checks every
+  second. If that replica dies, the run shows as `lost` after 30 s and can be
+  closed with Cancel.
+- Webhooks can hit any replica: the delivery is verified there and its runs
+  start there.
+
 ---
 
 ## Plain Docker (multi-container)

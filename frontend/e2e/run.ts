@@ -16,6 +16,7 @@ import './scenarios/h_audit_cli'
 import './scenarios/i_people_audit'
 import './scenarios/j_files'
 import './scenarios/k_mfa'
+import './scenarios/l_automation'
 
 const filters = process.argv.slice(2)
 const selected = filters.length ? scenarios.filter((s) => filters.some((f) => s.id === f || s.cat === f)) : scenarios
@@ -31,7 +32,7 @@ for (const s of selected) {
   try {
     await Promise.race([
       s.fn(),
-      new Promise((_, rej) => (timer = setTimeout(() => rej(new Error(`timed out after ${TIMEOUT} ms`)), TIMEOUT))),
+      new Promise((_, rej) => (timer = setTimeout(() => rej(new Error(`timed out after ${s.timeout ?? TIMEOUT} ms`)), s.timeout ?? TIMEOUT))),
     ])
     results.push({ id: s.id, cat: s.cat, title: s.title, ok: true, ms: performance.now() - t0 })
     console.log(`  ✓ ${s.id}  ${s.title}`)

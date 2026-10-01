@@ -1,5 +1,5 @@
 import type { Component } from 'svelte'
-import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText } from '@lucide/svelte'
+import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText, Workflow } from '@lucide/svelte'
 import { liveCount } from './terminals.svelte'
 
 /** `admin`: administrators only · `vault`: needs vault read access (not the `ssh` role). */
@@ -21,6 +21,12 @@ export const navGroups: NavGroup[] = [
       { to: '/sessions', label: 'Sessions', hint: 'Recorded sessions — replay or end them', ico: History },
       { to: '/people', label: 'People', hint: 'Add users, set passwords, roles and server access', ico: Users, admin: true },
       { to: '/audit', label: 'Audit trail', hint: 'Who did what, when, from where', ico: ScrollText, admin: true },
+    ],
+  },
+  {
+    label: 'Automation',
+    items: [
+      { to: '/automation', label: 'Infrastructure', hint: 'Terraform, OpenTofu, Ansible & Pulumi from Git — plan, apply, run', ico: Workflow, vault: true },
     ],
   },
 ]

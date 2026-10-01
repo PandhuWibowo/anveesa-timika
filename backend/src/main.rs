@@ -1,4 +1,5 @@
 mod audit;
+mod automation;
 mod auth;
 mod barrier;
 mod bastion;
@@ -101,6 +102,7 @@ async fn main() -> anyhow::Result<()> {
     core.spawn_retry_join();
     core.spawn_heartbeat();
     core.spawn_auto_unseal();
+    automation::schedule::spawn(core.clone());
     // Bastion: drop recordings past their retention (default 90 days), hourly.
     {
         let core = core.clone();
@@ -119,6 +121,12 @@ async fn main() -> anyhow::Result<()> {
                 match bastion::purge_old_sessions(&core, days).await {
                     Ok(n) if n > 0 => tracing::info!("bastion: purged {n} sessions older than {days} days"),
                     Err(e) => tracing::warn!("bastion: retention sweep failed: {e}"),
+                    _ => {}
+                }
+                let run_days: i64 = std::env::var("AUTOMATION_RETENTION_DAYS").ok().and_then(|v| v.parse().ok()).unwrap_or(days);
+                match automation::purge_old_runs(&core, run_days).await {
+                    Ok(n) if n > 0 => tracing::info!("automation: purged {n} runs older than {run_days} days"),
+                    Err(e) => tracing::warn!("automation: retention sweep failed: {e}"),
                     _ => {}
                 }
             }

@@ -5,7 +5,9 @@ server credentials, session recordings, users — in front of pluggable storage
 (**integrated Raft** with no external database, or **Redis** standalone /
 Sentinel / Cluster). People reach servers **through** timika: one-click web
 terminals, files over SFTP, every session recorded and every command logged,
-with no keys on anyone's laptop.
+with no keys on anyone's laptop. And infrastructure code runs **from Git**:
+Terraform / OpenTofu plan → apply, Ansible, Pulumi, on a runner server, with
+cloud credentials kept in the vault.
 
 ![Servers](docs/screenshots/servers.jpg)
 
@@ -15,6 +17,7 @@ with no keys on anyone's laptop.
  Terminal ─────────── WebSocket ─┼─▶ timika (Rust) ──────┘
                                  │    ├─ sign-in: password · captcha · 2FA (TOTP) · lockout
                                  │    ├─ bastion: terminals · recordings · command log · files
+                                 │    ├─ infrastructure: git → plan / apply on a runner (over SSH)
                                  │    ├─ audit trail (hash-chained, fail-closed)
                                  │    ├─ barrier: AES-256-GCM, keyring with terms
                                  │    └─ seal: Shamir-split root key (or auto-unseal), memory only
@@ -58,6 +61,7 @@ With Redis instead: `make redis && make dev` (`STORAGE=redis` is the default in
 | **Sessions** | Every recorded session — replay, download `.cast`, end live ones |
 | **People** | Users, roles (SSH access · Vault reader · Administrator), 2FA status, server grants |
 | **Audit trail** | Who did what, filterable, live, CSV export, integrity check |
+| **Infrastructure** | Git repositories with Terraform / OpenTofu, Ansible and Pulumi projects found automatically · **Plan → Apply** that exact plan · run options (workspace, destroy, limit, tags, extra vars) · Ansible against timika's servers by tag · code browser · approvals · cron schedules with drift alerts · Slack / Teams / Telegram notifications · CI trigger · push webhooks ([AUTOMATION.md](docs/AUTOMATION.md)) |
 | **My account** | Password and two-factor authentication |
 
 Sign-in follows US (NIST) or China (等保 2.0) policy profiles with captchas for
@@ -149,6 +153,7 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 ## Docs
 
 - [`docs/ACCESS.md`](docs/ACCESS.md): **servers, terminals, command log, files (SFTP) and archives, sessions, people, roles and the audit trail** — the user & admin guide.
+- [`docs/AUTOMATION.md`](docs/AUTOMATION.md): **infrastructure from Git** — connect a repository, runner servers, plan → apply, state in the vault, variables & secrets, push webhooks.
 - [`docs/API.md`](docs/API.md): the gRPC API (services, auth, status codes, gRPC-Web, load balancers).
 - [`docs/PERSISTENCE.md`](docs/PERSISTENCE.md): how storage works, and how to make Redis durable enough for a vault.
 - [`docs/LOGIN.md`](docs/LOGIN.md): sign-in with username, password, captcha and **two-factor (TOTP + recovery codes)**; US (NIST) and China (等保 2.0) policy profiles; captcha providers for both regions.
@@ -164,6 +169,6 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 |-------|------|
 | Backend | Rust · axum 0.7 · tonic 0.12 (gRPC + gRPC-Web) · tokio · aes-gcm · sharks (Shamir) · redis-rs 0.27 · openraft 0.9 + redb 2 · russh 0.63 + russh-sftp · argon2 · TOTP (RFC 6238) · auto-unseal: Transit / AWS KMS (SigV4) / static |
 | Frontend | Svelte 5 (runes) · Vite 6 · TypeScript · Connect (gRPC-Web, protobuf-es) · xterm.js · @lucide/svelte |
-| Tests | `make test` (unit + type checks) · `make e2e` — 272 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
+| Tests | `make test` (unit + type checks) · `make e2e` — 297 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
 | Storage | Redis 7 standalone / Sentinel / Cluster **or** integrated Raft |
 | Deploy | Docker · compose (scaled) · Docker Swarm stacks · Helm (Deployment/StatefulSet) · systemd · HAProxy |

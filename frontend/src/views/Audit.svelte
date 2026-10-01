@@ -10,7 +10,7 @@
 
   const CATS: { id: '' | Category; label: string }[] = [
     { id: '', label: 'All' }, { id: 'signin', label: 'Sign-in' }, { id: 'secrets', label: 'Secrets' }, { id: 'servers', label: 'Servers' },
-    { id: 'sessions', label: 'Sessions' }, { id: 'files', label: 'Files' }, { id: 'users', label: 'Users' }, { id: 'system', label: 'System' },
+    { id: 'sessions', label: 'Sessions' }, { id: 'files', label: 'Files' }, { id: 'automation', label: 'Automation' }, { id: 'users', label: 'Users' }, { id: 'system', label: 'System' },
   ]
 
   let events = $state<AuditEvent[]>([])
@@ -224,6 +224,7 @@
   .aud__cat--servers { background: var(--brand); }
   .aud__cat--sessions { background: #c79bf2; }
   .aud__cat--files { background: var(--info); }
+  .aud__cat--automation { background: var(--success); }
   .aud__cat--users { background: var(--danger); }
   .aud__detail td { background: var(--bg-body); }
   .aud__grid { display: grid; grid-template-columns: 120px 1fr; gap: 6px 14px; font-size: 12.5px; padding: 4px 0; }

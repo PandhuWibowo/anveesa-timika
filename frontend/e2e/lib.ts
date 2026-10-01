@@ -16,6 +16,7 @@ import { AuthService } from '../src/gen/timika/v1/auth_pb'
 import { BastionService } from '../src/gen/timika/v1/bastion_pb'
 import { ClusterService } from '../src/gen/timika/v1/cluster_pb'
 import { AuditService } from '../src/gen/timika/v1/audit_pb'
+import { AutomationService } from '../src/gen/timika/v1/automation_pb'
 import { Health } from './gen/grpc/health/v1/health_pb'
 
 export { Code, ConnectError }
@@ -208,6 +209,7 @@ function clientsFor(t: Transport) {
     bastion: createClient(BastionService, t),
     cluster: createClient(ClusterService, t),
     audit: createClient(AuditService, t),
+    automation: createClient(AutomationService, t),
     health: createClient(Health, t),
   }
 }

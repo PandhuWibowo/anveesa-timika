@@ -3,7 +3,7 @@
 
 import type { AuditEvent } from '../gen/timika/v1/audit_pb'
 
-export type Category = 'signin' | 'secrets' | 'servers' | 'sessions' | 'files' | 'users' | 'system'
+export type Category = 'signin' | 'secrets' | 'servers' | 'sessions' | 'files' | 'automation' | 'users' | 'system'
 
 const LABELS: Record<string, [string, Category]> = {
   'KvService/Write': ['Wrote secret', 'secrets'],
@@ -51,6 +51,31 @@ const LABELS: Record<string, [string, Category]> = {
   'session closed': ['Terminal session ended', 'sessions'],
   'session killed': ['Session ended by an admin', 'sessions'],
   'session failed': ['Terminal connection failed', 'sessions'],
+  'AutomationService/CreateRepo': ['Connected a repository', 'automation'],
+  'AutomationService/UpdateRepo': ['Changed repository settings', 'automation'],
+  'AutomationService/DeleteRepo': ['Removed a repository', 'automation'],
+  'AutomationService/SyncRepo': ['Pulled a repository', 'automation'],
+  'AutomationService/NewDeployKey': ['Generated a deploy key', 'automation'],
+  'AutomationService/CheckRunner': ['Checked a runner server', 'automation'],
+  'AutomationService/StartRun': ['Started a run', 'automation'],
+  'AutomationService/CancelRun': ['Cancelled a run', 'automation'],
+  'AutomationService/ApproveRun': ['Approved a run', 'automation'],
+  'AutomationService/RejectRun': ['Rejected a run', 'automation'],
+  'AutomationService/SaveSchedule': ['Saved a schedule', 'automation'],
+  'AutomationService/DeleteSchedule': ['Deleted a schedule', 'automation'],
+  'AutomationService/RunScheduleNow': ['Ran a schedule now', 'automation'],
+  'AutomationService/ListSchedules': ['Viewed schedules', 'automation'],
+  'AutomationService/SetRepoPolicy': ['Changed approval policy', 'automation'],
+  'AutomationService/SaveNotifiers': ['Changed notifications', 'automation'],
+  'AutomationService/TestNotifier': ['Sent a test notification', 'automation'],
+  'AutomationService/RotateTriggerToken': ['Rotated the CI token', 'automation'],
+  'AutomationService/ListRepoFiles': ['Browsed repository files', 'automation'],
+  'AutomationService/ReadRepoFile': ['Read a repository file', 'automation'],
+  'AutomationService/ListRepos': ['Viewed repositories', 'automation'],
+  'AutomationService/GetRepo': ['Viewed a repository', 'automation'],
+  'AutomationService/ListRuns': ['Viewed runs', 'automation'],
+  'AutomationService/GetRun': ['Viewed a run', 'automation'],
+  'AutomationService/WatchRun': ['Watched run output', 'automation'],
   'SysService/Init': ['Initialized vault', 'system'],
   'SysService/Unseal': ['Submitted unseal key', 'system'],
   'SysService/Seal': ['Sealed vault', 'system'],
@@ -75,6 +100,8 @@ export const CODE_NAMES: Record<number, string> = {
 }
 
 export function describe(e: Pick<AuditEvent, 'action' | 'ok' | 'kind' | 'code'>): { label: string; category: Category } {
+  if (e.action.startsWith('POST /v1/automation/hooks/')) return { label: e.ok ? 'Push webhook received' : 'Push webhook refused', category: 'automation' }
+  if (e.action.startsWith('POST /v1/automation/trigger/')) return { label: e.ok ? 'Run started from CI' : 'CI trigger refused', category: 'automation' }
   const hit = LABELS[e.action]
   if (!hit) return { label: e.action, category: 'system' }
   let [label, category] = hit

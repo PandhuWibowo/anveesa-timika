@@ -80,21 +80,7 @@ impl FilePool {
                 return Ok(c);
             }
         }
-        let secret: Secret = core
-            .get_json(&cred_path(&asset.id, account))
-            .await?
-            .ok_or_else(|| AppError::NotFound("account credentials".into()))?;
-        let c = ssh::connect(asset, account, &secret).await.map_err(AppError::BadRequest)?;
-        if c.first_seen && !c.host_key.is_empty() {
-            let _ = pin_host_key(core, &asset.id, &c.host_key).await;
-        }
-        let ch = c.handle.channel_open_session().await.map_err(|e| AppError::BadRequest(format!("could not open a session: {e}")))?;
-        ch.request_subsystem(true, "sftp").await.map_err(|e| AppError::BadRequest(format!("the server has no SFTP: {e}")))?;
-        let sftp = SftpSession::new(ch.into_stream())
-            .await
-            .map_err(|e| AppError::BadRequest(format!("SFTP is not available on this server: {e}")))?;
-        sftp.set_timeout(30);
-        let conn = Arc::new(Conn { sftp, handle: c.handle, last: std::sync::Mutex::new(Instant::now()) });
+        let conn = Arc::new(open(core, asset, account).await?);
         self.conns.lock().await.insert(key, conn.clone());
         Ok(conn)
     }
@@ -105,6 +91,26 @@ impl FilePool {
             ssh::disconnect(&c.handle).await;
         }
     }
+}
+
+/// A new SSH + SFTP connection as `account` on `asset` (stored credentials,
+/// pinned host key). The pool reuses these; automation runs open their own.
+pub async fn open(core: &Core, asset: &Asset, account: &str) -> AppResult<Conn> {
+    let secret: Secret = core
+        .get_json(&cred_path(&asset.id, account))
+        .await?
+        .ok_or_else(|| AppError::NotFound("account credentials".into()))?;
+    let c = ssh::connect(asset, account, &secret).await.map_err(AppError::BadRequest)?;
+    if c.first_seen && !c.host_key.is_empty() {
+        let _ = pin_host_key(core, &asset.id, &c.host_key).await;
+    }
+    let ch = c.handle.channel_open_session().await.map_err(|e| AppError::BadRequest(format!("could not open a session: {e}")))?;
+    ch.request_subsystem(true, "sftp").await.map_err(|e| AppError::BadRequest(format!("the server has no SFTP: {e}")))?;
+    let sftp = SftpSession::new(ch.into_stream())
+        .await
+        .map_err(|e| AppError::BadRequest(format!("SFTP is not available on this server: {e}")))?;
+    sftp.set_timeout(30);
+    Ok(Conn { sftp, handle: c.handle, last: std::sync::Mutex::new(Instant::now()) })
 }
 
 /// An SFTP error as something to tell the user.

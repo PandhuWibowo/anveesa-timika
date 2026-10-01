@@ -50,7 +50,11 @@ before touching storage, crypto or clustering.
    session before the second factor (auth/mfa.rs: TOTP replay protection, wrong
    codes count toward lockout), and
    never return captcha/KMS secrets from `login-config` (docs/LOGIN.md).
-9. **Joining requires the challenge.** A node becomes a voter only via
+9. **Infrastructure code never runs on the timika host** — only on a runner
+   server over SSH. Git gets tokens via env headers and keys via 0600 temp files,
+   never on a command line; secret variables are masked in output and never
+   returned by the API (automation/, docs/AUTOMATION.md).
+10. **Joining requires the challenge.** A node becomes a voter only via
    `join_answer` after decrypting a barrier-encrypted nonce. Keep the single-use and
    TTL checks.
 
@@ -65,7 +69,7 @@ make redis-sentinel-up / redis-cluster-up   # Redis HA rigs with timika inside
 make stop         # free the dev ports
 make gen          # regenerate frontend/src/gen from proto/ (after editing a .proto)
 make test         # gen + cargo test + svelte-check
-make e2e          # 200 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
+make e2e          # 297 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
 make helm-lint    # lint deploy/helm/timika
 ```
 
@@ -104,10 +108,17 @@ backend/src/
                   commands.rs: per-session command log (only what the screen echoed — never hidden input)
                   files.rs: SFTP pool + signed download links · archive.rs: tar/zip commands (every name
                   quoted + ./-prefixed) · provision.rs: create accounts, sudo, groups
+  automation/     infrastructure from Git (docs/AUTOMATION.md): mod.rs (repos, runs, project
+                  detection, summaries, secret Masker, start_run/sync_repo), git.rs (hardened
+                  `git` on bare clones, deploy keys), runner.rs (snapshot → runner over SFTP,
+                  `sh run.sh` over SSH, output/plan/state back into the vault, server inventory),
+                  schedule.rs + cron.rs (cron schedules, claimed once cluster-wide), notify.rs
+                  (Slack/Teams/Discord/Telegram/webhook)
   kv.rs           KV v2 engine: versions, CAS, soft delete, destroy, folder listing
   routes/         plain HTTP only: /v1/sys/health, the /v1/bastion/connect WebSocket,
-                  /v1/bastion/files/upload (PUT) and /download (GET, signed link)
-proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit)
+                  /v1/bastion/files/upload (PUT) and /download (GET, signed link),
+                  /v1/automation/hooks/<repo> (push webhooks, HMAC / token), /v1/automation/trigger/<repo> (CI)
+proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation)
 frontend/src/
   App.svelte      shell (sidebar/topbar/statusbar) or Gate when sealed/uninit/no token
   gen/            generated from proto (`bun run gen`: buf + protoc-gen-es) — don't edit
@@ -118,7 +129,9 @@ frontend/src/
                   FilesBrowser (SFTP + archives), MfaSetup, Captcha
   views/          Gate, Login (password → 2FA), Overview, Servers, ServerDetail (Commands ·
                   Files · Sessions · Activity · Access), Terminals (always mounted — sessions
-                  survive navigation; lib/terminals.svelte.ts), Sessions, People, Audit, Account
+                  survive navigation; lib/terminals.svelte.ts), Sessions, People, Audit, Account,
+                  Automation / AutomationRepo / RunView (+ components RepoDrawer, RunsTable, RunDialog,
+                  RunOptionsForm, ScheduleDialog, NotifySettings)
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)
@@ -162,4 +175,6 @@ scripts/raft-dev.sh   local 3-node cluster
 Policies (path ACLs) + non-root tokens with TTL · rekey (new shares) ·
 snapshot **restore** endpoint · autopilot (dead-server cleanup) · GCP/Azure KMS seals ·
 seal migration back to Shamir / between KMSs · more secret engines (transit, dynamic DB creds) ·
-bastion: command capture for multi-line pastes, in-browser file editor, folder upload.
+bastion: command capture for multi-line pastes, in-browser file editor, folder upload ·
+infrastructure: container / Kubernetes runners, Terragrunt + script projects, workflows (chained
+projects), IANA time zones, Crossplane / Kubernetes manifests, GitHub App instead of tokens / deploy keys.

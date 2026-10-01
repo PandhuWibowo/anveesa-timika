@@ -13,6 +13,7 @@
 
 pub mod audit;
 pub mod auth;
+pub mod automation;
 pub mod bastion;
 pub mod client;
 pub mod cluster;
@@ -134,6 +135,7 @@ pub fn reply<T>(msg: T, who: &TokenEntry) -> Response<T> {
 pub fn router(st: AppState) -> axum::Router {
     use pb::audit_service_server::AuditServiceServer;
     use pb::auth_service_server::AuthServiceServer;
+    use pb::automation_service_server::AutomationServiceServer;
     use pb::bastion_service_server::BastionServiceServer;
     use pb::cluster_service_server::ClusterServiceServer;
     use pb::kv_service_server::KvServiceServer;
@@ -160,6 +162,7 @@ pub fn router(st: AppState) -> axum::Router {
         .add_service(tonic_web::enable(AuthServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(BastionServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(AuditServiceServer::new(ctx.clone())))
+        .add_service(tonic_web::enable(AutomationServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(ClusterServiceServer::new(ctx)))
         .add_service(tonic_web::enable(health))
         .into_axum_router()

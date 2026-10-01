@@ -17,9 +17,10 @@
   import People from './views/People.svelte'
   import Audit from './views/Audit.svelte'
   import Account from './views/Account.svelte'
+  import Automation from './views/AutomationRoute.svelte'
   import { closeAll } from './lib/terminals.svelte'
 
-  const views = { '/': Overview, '/servers': Servers, '/sessions': Sessions, '/people': People, '/audit': Audit, '/account': Account } as const
+  const views = { '/': Overview, '/servers': Servers, '/sessions': Sessions, '/people': People, '/audit': Audit, '/account': Account, '/automation': Automation } as const
   const onTerminal = $derived(router.path === '/terminal')
   const View = $derived(views[('/' + (router.path.split('/')[1] ?? '')) as keyof typeof views] ?? Overview)
   const title = $derived(titleFor(router.path))

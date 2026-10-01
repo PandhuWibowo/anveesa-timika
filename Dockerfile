@@ -21,7 +21,8 @@ COPY backend/src ./src
 RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
+# git + ssh: Infrastructure repositories are cloned here (runs execute on runner servers).
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git openssh-client && rm -rf /var/lib/apt/lists/* \
  && useradd --system --uid 10001 --home /app timika \
  && mkdir -p /data /var/log/timika && chown timika /data /var/log/timika
 WORKDIR /app
@@ -33,6 +34,7 @@ COPY --from=web /web/dist /app/static
 ENV BIND_ADDR=0.0.0.0:8200 \
     CLUSTER_BIND_ADDR=0.0.0.0:8201 \
     RAFT_PATH=/data \
+    AUTOMATION_DIR=/data/automation \
     LOG_DIR=/var/log/timika \
     AUDIT_FILE=/var/log/timika/audit-{instance}.log
 EXPOSE 8200 8201

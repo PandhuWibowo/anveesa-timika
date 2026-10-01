@@ -10,6 +10,8 @@ The API is gRPC, defined in [`proto/timika/v1/*.proto`](../proto/timika/v1) (pac
 | `grpc.health.v1.Health` | gRPC-aware probes / LBs (`SERVING` only while unsealed) | `/grpc.health.v1.Health/Check` |
 | plain HTTP | load balancers and k8s probes that can't speak gRPC | `GET /v1/sys/health` |
 | WebSocket | the web terminal (browsers can't do bidirectional gRPC streams) | `GET /v1/bastion/connect` |
+| HTTP webhook | push webhooks from GitHub / GitLab / Gitea (repository webhook secret) | `POST /v1/automation/hooks/<repo>` |
+| HTTP trigger | CI starts a run (`Authorization: Bearer tmkci.…`; `wait` → 200 / 409) | `POST /v1/automation/trigger/<repo>` |
 | HTTP streams | file transfer (gRPC-Web can't stream request bodies) | `PUT /v1/bastion/files/upload?asset&account&path` (token header) · `GET /v1/bastion/files/download?t=<link from DownloadLink>` |
 
 No proxy (Envoy etc.) is needed for gRPC-Web — the server speaks it natively.
@@ -23,7 +25,7 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 | none | `SysService` Health · GetSealStatus · Init · Unseal · Instances, `AuthService` GetLoginConfig · GetCaptchaChallenge · Login · VerifyMfa (with the `mfa_challenge` from Login), `ClusterService` JoinChallenge · JoinAnswer |
 | any session (incl. the restricted *change-password* and *mfa-setup* sign-ins) | `AuthService` LookupSelf · RenewSelf · RevokeSelf · ChangePassword · GetMfaStatus · BeginMfaSetup · ConfirmMfaSetup (an *mfa-setup* session comes back as a full one) · DisableMfa · NewRecoveryCodes |
 | `ssh` | only the bastion: ListAssets (servers granted to them), the terminal, files, ListSessions/GetRecording/ListCommands (their own) — no vault data |
-| `read-only` | the `ssh` rights plus reads: KV List/Read/GetMetadata, GetKeyStatus, Storage, Audit, Configuration |
+| `read-only` | the `ssh` rights plus reads: KV List/Read/GetMetadata, GetKeyStatus, Storage, Audit, Configuration, AutomationService ListRepos/GetRepo/ListRuns/GetRun/WatchRun |
 | `admin` / root | everything |
 
 ## Errors → status codes
@@ -35,7 +37,7 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 | `FAILED_PRECONDITION` (9) | `vault is sealed` · `vault is not initialized` |
 | `INVALID_ARGUMENT` (3) | bad path, weak password, missing field |
 | `NOT_FOUND` (5) | secret / version / user / server not found |
-| `ABORTED` (10) | check-and-set mismatch, concurrent update — retry |
+| `ABORTED` (10) | check-and-set mismatch, concurrent update — retry; a project already running; a plan already applied |
 | `ALREADY_EXISTS` (6) | a server with that name exists |
 | `RESOURCE_EXHAUSTED` (8) | sign-in rate limit |
 | `UNAVAILABLE` (14) | storage unreachable, no Raft leader, audit log down (fail-closed) |
@@ -51,6 +53,7 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 | `BastionService` | ListAssets · CreateAsset (`test`) · UpdateAsset · DeleteAsset · TestAsset · ResetHostKey · ListGrants · ListAllGrants · CreateGrant · DeleteGrant · ListSessions · KillSession · GetRecording (server stream, asciicast v2) · ListCommands (per server or session; `query`, `risky`) |
 | `BastionService` (accounts on the VM) | `AccountInput.provision` creates/updates the Linux user over SSH before saving: `provision_via` (an account on the same server, e.g. `root`, or the account itself), `password` (set with `chpasswd`), `sudo` (`keep` · `none` · `password` · `nopassword`, a `visudo`-checked file in `/etc/sudoers.d`), `groups` (`usermod -aG`; missing groups are reported, not created) |
 | `ClusterService` | Configuration · RemovePeer · Snapshot (server stream) · JoinChallenge · JoinAnswer |
+| `AutomationService` | ListRepos · GetRepo (+ recent commits) · NewDeployKey · CreateRepo (clones now; `branch` empty = default branch) · UpdateRepo (empty token / key / secret value = keep) · DeleteRepo · SyncRepo (git pull) · CheckRunner (tools on the runner) · ListRuns · GetRun · StartRun (`plan` · `apply` with `plan_run` · `check` · `run` · `preview` · `up`) · CancelRun · WatchRun (server stream: output from the start, then live) · ApproveRun / RejectRun (another admin) · ListRepoFiles / ReadRepoFile (browse the clone at a commit; admin) · ListSchedules · SaveSchedule · DeleteSchedule · RunScheduleNow · SetRepoPolicy (approvals) · SaveNotifiers · TestNotifier · RotateTriggerToken. StartRun takes `options` (limit, tags, skip_tags, extra_vars, verbose, servers, destroy, targets, replace, workspace, refresh) — [AUTOMATION.md](AUTOMATION.md) |
 | `AuditService` | ListEvents (newest first; filter by user, text, category incl. `files`, outcome, `server`; routine reads hidden unless `include_routine`) · Verify (hash chain) — admin |
 
 Times are RFC 3339 strings. Free-form reports (`Storage`, `Audit`, `SealResponse.report`)

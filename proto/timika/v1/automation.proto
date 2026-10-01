@@ -1,0 +1,405 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Infrastructure as code from Git: connect a repository, timika finds the
+// Terraform / OpenTofu, Ansible and Pulumi projects in it, and runs them on a
+// runner server (one of the bastion's servers) over SSH — never on the vault
+// host. Secret variables stay in the vault and are masked in the output.
+//
+// Reads (repos, runs, output) need `Read`; everything else `Admin`.
+service AutomationService {
+  rpc ListRepos(google.protobuf.Empty) returns (ListReposResponse);
+  // The repository with its recent commits.
+  rpc GetRepo(RepoRef) returns (RepoDetail);
+  // A fresh SSH key pair for read access ("deploy key"); the private half stays
+  // in the vault and is used by CreateRepo / UpdateRepo with `deploy_key_id`.
+  rpc NewDeployKey(google.protobuf.Empty) returns (DeployKey);
+  // Clones the repository (so bad access fails right away) and detects projects.
+  rpc CreateRepo(RepoInput) returns (Repo);
+  rpc UpdateRepo(UpdateRepoRequest) returns (Repo);
+  rpc DeleteRepo(RepoRef) returns (google.protobuf.Empty);
+  // git pull: fetch the branch, re-detect projects.
+  rpc SyncRepo(RepoRef) returns (Repo);
+  // Which tools the runner server has (terraform, tofu, ansible, pulumi).
+  rpc CheckRunner(CheckRunnerRequest) returns (RunnerStatus);
+
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc GetRun(RunRef) returns (Run);
+  // terraform: plan · apply (of a plan: `plan_run`); ansible: check · run;
+  // pulumi: preview · up.
+  rpc StartRun(StartRunRequest) returns (Run);
+  rpc CancelRun(RunRef) returns (Run);
+  // The run's output from the start, then live until it finishes.
+  rpc WatchRun(RunRef) returns (stream RunEvent);
+
+  // Repositories that require it: another admin approves Apply / Run / Up.
+  rpc ApproveRun(RunRef) returns (Run);
+  rpc RejectRun(RunRef) returns (Run);
+
+  // Cron schedules (a nightly plan to catch drift, a weekly playbook…).
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  // Create (no id) or update.
+  rpc SaveSchedule(ScheduleInput) returns (Schedule);
+  rpc DeleteSchedule(ScheduleRef) returns (google.protobuf.Empty);
+  rpc RunScheduleNow(ScheduleRef) returns (Run);
+
+  // Approval policy, notifications and the CI trigger token of a repository.
+  rpc SetRepoPolicy(RepoPolicy) returns (Repo);
+  rpc SaveNotifiers(SaveNotifiersRequest) returns (Repo);
+  rpc TestNotifier(TestNotifierRequest) returns (TestNotifierResponse);
+  rpc RotateTriggerToken(RepoRef) returns (Repo);
+
+  // Browse the repository at a commit (default: the pulled head) and read files.
+  // Admin only: code can contain secrets that were committed by mistake.
+  rpc ListRepoFiles(RepoFilesRequest) returns (RepoFilesResponse);
+  rpc ReadRepoFile(RepoFileRequest) returns (RepoFile);
+}
+
+message RepoFilesRequest {
+  string repo = 1;
+  // "" = the root. No leading or trailing slash.
+  string path = 2;
+  // Full commit id; empty = the pulled head.
+  string sha = 3;
+}
+
+message RepoFileEntry {
+  string name = 1;
+  // dir · file · link · submodule
+  string kind = 2;
+  uint64 size = 3;
+}
+
+message RepoFilesResponse {
+  string path = 1;
+  string sha = 2;
+  // dir (entries) or file (open it with ReadRepoFile).
+  string kind = 3;
+  repeated RepoFileEntry entries = 4;
+}
+
+message RepoFileRequest {
+  string repo = 1;
+  string path = 2;
+  string sha = 3;
+}
+
+message RepoFile {
+  string path = 1;
+  string sha = 2;
+  uint64 size = 3;
+  bool binary = 4;
+  // Over the viewer's limit (1 MB): not sent.
+  bool too_large = 5;
+  string content = 6;
+}
+
+// Per-run choices; the ones that don't apply to the project's kind are ignored.
+message RunOptions {
+  // Ansible
+  string limit = 1;
+  string tags = 2;
+  string skip_tags = 3;
+  // key=value lines or a JSON object.
+  string extra_vars = 4;
+  uint32 verbose = 5;
+  // Run against timika's servers with these tags (comma-separated, * = all)
+  // instead of the repository's inventory.
+  string servers = 6;
+  // Terraform
+  bool destroy = 7;
+  repeated string targets = 8;
+  repeated string replace = 9;
+  string workspace = 10;
+  // Pulumi
+  bool refresh = 11;
+}
+
+message Notifier {
+  string id = 1;
+  // slack · teams · discord · telegram · webhook
+  string kind = 2;
+  // failed · drift · approval · succeeded
+  repeated string on = 3;
+  // Redacted target, e.g. "hooks.slack.com/…/x9Kd".
+  string label = 4;
+}
+
+message NotifierInput {
+  // Empty = new.
+  string id = 1;
+  string kind = 2;
+  repeated string on = 3;
+  // Webhook URL / Telegram bot token. Empty on update = keep.
+  string url = 4;
+  string chat_id = 5;
+}
+
+message SaveNotifiersRequest {
+  string repo = 1;
+  repeated NotifierInput notifiers = 2;
+}
+
+message TestNotifierRequest {
+  string repo = 1;
+  NotifierInput notifier = 2;
+}
+
+message TestNotifierResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+message RepoPolicy {
+  string id = 1;
+  bool require_approval = 2;
+}
+
+message Schedule {
+  string id = 1;
+  string repo = 2;
+  string project = 3;
+  string project_name = 4;
+  string action = 5;
+  string name = 6;
+  string cron = 7;
+  string timezone = 8;
+  RunOptions options = 9;
+  bool enabled = 10;
+  optional string next_run = 11;
+  optional string last_fired = 12;
+  optional string last_run = 13;
+  optional string last_result = 14;
+  string created_by = 15;
+}
+
+message ScheduleInput {
+  // Empty = new.
+  string id = 1;
+  string repo = 2;
+  string project = 3;
+  string action = 4;
+  string name = 5;
+  string cron = 6;
+  string timezone = 7;
+  RunOptions options = 8;
+  bool enabled = 9;
+}
+
+message ScheduleRef {
+  string id = 1;
+}
+
+message ListSchedulesRequest {
+  // Empty = every repository.
+  string repo = 1;
+}
+
+message ListSchedulesResponse {
+  repeated Schedule schedules = 1;
+}
+
+message RepoRef {
+  string id = 1;
+}
+
+message Commit {
+  string sha = 1;
+  string message = 2;
+  string author = 3;
+  string time = 4;
+}
+
+message Project {
+  // kind:dir[/file|#stack] — stable across pulls.
+  string id = 1;
+  // terraform · ansible · pulumi
+  string kind = 2;
+  // Folder in the repository ("" = the root).
+  string dir = 3;
+  // Ansible: the playbook file in `dir`.
+  string file = 4;
+  // Pulumi: the stack (from Pulumi.<stack>.yaml).
+  string stack = 5;
+  string name = 6;
+}
+
+message Variable {
+  string name = 1;
+  // Empty for secrets (never returned).
+  string value = 2;
+  bool secret = 3;
+}
+
+message HookDelivery {
+  string time = 1;
+  string sha = 2;
+  string by = 3;
+  string result = 4;
+}
+
+message Repo {
+  string id = 1;
+  string name = 2;
+  string url = 3;
+  // Tracked branch (the repository's default branch unless chosen).
+  string branch = 4;
+  // none · token · deploy_key
+  string auth = 5;
+  // The deploy key to add (read-only) to the repository.
+  optional string deploy_public_key = 6;
+  string runner_asset = 7;
+  string runner_account = 8;
+  string runner_name = 9;
+  // Plan / check / preview the projects a push touches.
+  bool auto_plan = 10;
+  // auto (terraform, else tofu) · terraform · tofu
+  string tf_bin = 11;
+  repeated Variable variables = 12;
+  optional Commit head = 13;
+  optional string synced_at = 14;
+  optional string sync_error = 15;
+  repeated Project projects = 16;
+  // POST target for GitHub / GitLab / Gitea push webhooks.
+  string webhook_path = 17;
+  // Admins only.
+  optional string webhook_secret = 18;
+  optional HookDelivery last_hook = 19;
+  string created_at = 20;
+  string created_by = 21;
+  bool require_approval = 22;
+  repeated Notifier notifiers = 23;
+  // POST target for CI (Authorization: Bearer <trigger_token>).
+  string trigger_path = 24;
+  // Admins only.
+  optional string trigger_token = 25;
+}
+
+message RepoDetail {
+  Repo repo = 1;
+  repeated Commit commits = 2;
+}
+
+message ListReposResponse {
+  repeated Repo repos = 1;
+}
+
+message DeployKey {
+  string id = 1;
+  string public_key = 2;
+}
+
+message VariableInput {
+  string name = 1;
+  // Empty on update = keep the stored value (secrets).
+  string value = 2;
+  bool secret = 3;
+}
+
+message RepoInput {
+  string url = 1;
+  // Empty = the repository's default branch.
+  string branch = 2;
+  string name = 3;
+  // none · token · deploy_key
+  string auth = 4;
+  // HTTPS token (fine-grained PAT, GitLab token…). Empty on update = keep.
+  string token = 5;
+  // From NewDeployKey. Empty on update = keep the current key.
+  string deploy_key_id = 6;
+  string runner_asset = 7;
+  string runner_account = 8;
+  bool auto_plan = 9;
+  string tf_bin = 10;
+  repeated VariableInput variables = 11;
+}
+
+message UpdateRepoRequest {
+  string id = 1;
+  RepoInput repo = 2;
+  bool new_webhook_secret = 3;
+}
+
+message CheckRunnerRequest {
+  string asset = 1;
+  string account = 2;
+}
+
+message Tool {
+  string name = 1;
+  string version = 2;
+}
+
+message RunnerStatus {
+  bool ok = 1;
+  string error = 2;
+  repeated Tool tools = 3;
+}
+
+message Run {
+  string id = 1;
+  string repo = 2;
+  string repo_name = 3;
+  string project = 4;
+  string project_name = 5;
+  string kind = 6;
+  string action = 7;
+  // approval · queued · running · succeeded · failed · cancelled · lost
+  string status = 8;
+  string user = 9;
+  // manual · push · schedule · ci
+  string trigger = 10;
+  string sha = 11;
+  string commit_message = 12;
+  string runner_name = 13;
+  string created_at = 14;
+  optional string started_at = 15;
+  optional string finished_at = 16;
+  optional int32 exit_code = 17;
+  // "+2 ~1 -0", "no changes", "ok 4 · changed 1"…
+  optional string summary = 18;
+  // Plan / preview / check found changes.
+  optional bool changes = 19;
+  optional string error = 20;
+  // Apply: the plan it applies. Plan: the apply that used it.
+  optional string plan_run = 21;
+  optional string applied_by = 22;
+  uint64 log_bytes = 23;
+  bool truncated = 24;
+  RunOptions options = 25;
+  // "limit web · tags deploy · destroy"
+  string options_text = 26;
+  optional string approved_by = 27;
+}
+
+message ListRunsRequest {
+  // Empty = every repository.
+  string repo = 1;
+  uint32 limit = 2;
+}
+
+message ListRunsResponse {
+  repeated Run runs = 1;
+}
+
+message RunRef {
+  string id = 1;
+}
+
+message StartRunRequest {
+  string repo = 1;
+  string project = 2;
+  string action = 3;
+  optional string plan_run = 4;
+  RunOptions options = 5;
+}
+
+message RunEvent {
+  // Output since the previous event (secrets masked).
+  string output = 1;
+  // Sent first, on every status change, and last.
+  optional Run run = 2;
+}

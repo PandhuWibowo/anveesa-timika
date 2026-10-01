@@ -606,6 +606,13 @@ pub fn routine(action: &str) -> bool {
             | "BastionService/ListFiles"
             | "BastionService/DownloadLink"
             | "BastionService/ArchiveLink"
+            | "AutomationService/ListRepos"
+            | "AutomationService/GetRepo"
+            | "AutomationService/ListRuns"
+            | "AutomationService/GetRun"
+            | "AutomationService/WatchRun"
+            | "AutomationService/ListSchedules"
+            | "AutomationService/ListRepoFiles"
             | "ClusterService/Configuration"
             | "KvService/List"
             | "KvService/GetMetadata"
@@ -619,6 +626,8 @@ pub fn category(action: &str) -> &'static str {
         "files"
     } else if action.starts_with("session") || action.contains("/v1/bastion/connect") || rpc.contains("Session") || rpc == "GetRecording" {
         "sessions"
+    } else if action.starts_with("AutomationService/") || action.contains("/v1/automation/") {
+        "automation"
     } else if action.starts_with("KvService/") {
         "secrets"
     } else if matches!(rpc, "Login" | "LookupSelf" | "RenewSelf" | "RevokeSelf" | "ChangePassword") {
