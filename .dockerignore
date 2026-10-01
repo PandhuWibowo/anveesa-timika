@@ -1,0 +1,7 @@
+backend/target
+backend/data
+backend/.env
+frontend/node_modules
+frontend/dist
+**/.DS_Store
+frontend/src/gen

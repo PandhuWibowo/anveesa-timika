@@ -1,0 +1,78 @@
+[package]
+name = "anveesa-timika-backend"
+version = "0.2.0"
+edition = "2021"
+description = "anveesa-timika — a Vault-style secrets manager: Rust encryption barrier over pluggable storage (Redis or integrated Raft)"
+
+[dependencies]
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+thiserror = "1"
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Storage backend 1: Redis — standalone, Sentinel or Cluster.
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "sentinel", "cluster-async", "script", "tokio-rustls-comp", "tls-rustls"] }
+
+# Storage backend 2: integrated Raft (HA). openraft for consensus, redb as the
+# per-node embedded store (log + state machine), JSON on disk and on the wire.
+openraft = { version = "0.9", features = ["serde", "storage-v2", "generic-snapshot-data"] }
+redb = "2"
+
+# Inter-node HTTP (raft RPC, request forwarding, join) + optional TLS.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+axum-server = { version = "0.7", features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+# gRPC client connector for `operator --tls-skip-verify` (tonic can't disable verification).
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+tower = { version = "0.4", features = ["util"] }
+
+# Crypto: AES-256-GCM barrier, Shamir-split root key, token hashing, cluster HMAC.
+aes-gcm = "0.10"
+sharks = "0.5"
+rand = "0.8"
+sha2 = "0.10"
+hmac = "0.12"
+hex = "0.4"
+base64 = "0.22"
+zeroize = "1"
+rpassword = "7"
+tracing-appender = "0.2"
+argon2 = "0.5"
+sha1 = "0.10"
+russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tonic = { version = "0.12", features = ["tls", "tls-native-roots", "router"] }
+tonic-web = "0.12"
+tonic-health = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+tokio-stream = "0.1"
+russh-sftp = "2"
+tokio-util = { version = "0.7", features = ["io"] }
+bytes = "1"
+data-encoding = "2"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+
+[build-dependencies]
+protoc-bin-vendored = "3"
+tonic-build = "0.12"
+
+# Smaller, faster dev builds: line tables only for our code (backtraces still
+# show file:line), no debug info for dependencies.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

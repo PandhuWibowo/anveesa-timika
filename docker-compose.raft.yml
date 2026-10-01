@@ -1,0 +1,63 @@
+# anveesa-timika — 3-node integrated Raft cluster (no Redis, no other database).
+#
+#   docker compose -f docker-compose.raft.yml up --build
+#
+# Then: initialize ONE node (http://localhost:8200), unseal it, and unseal the
+# other two (:8210, :8220) with the same keys — they find the cluster through
+# RAFT_RETRY_JOIN and join automatically. Each node keeps its own copy of the
+# data in its own volume.
+
+x-timika: &timika
+  build: .
+  image: anveesa-timika:dev
+  restart: unless-stopped
+
+x-env: &env
+  STORAGE: raft
+  BIND_ADDR: 0.0.0.0:8200
+  CLUSTER_BIND_ADDR: 0.0.0.0:8201
+  RAFT_PATH: /data
+  RAFT_RETRY_JOIN: http://timika-0:8200,http://timika-1:8200,http://timika-2:8200
+  RUST_LOG: info,openraft=warn
+
+services:
+  timika-0:
+    <<: *timika
+    hostname: timika-0
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-0
+      API_ADDR: http://timika-0:8200
+      CLUSTER_ADDR: http://timika-0:8201
+    volumes: [timika-0:/data, timika-0-logs:/var/log/timika]
+    ports: ["8200:8200"]
+
+  timika-1:
+    <<: *timika
+    hostname: timika-1
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-1
+      API_ADDR: http://timika-1:8200
+      CLUSTER_ADDR: http://timika-1:8201
+    volumes: [timika-1:/data, timika-1-logs:/var/log/timika]
+    ports: ["8210:8200"]
+
+  timika-2:
+    <<: *timika
+    hostname: timika-2
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-2
+      API_ADDR: http://timika-2:8200
+      CLUSTER_ADDR: http://timika-2:8201
+    volumes: [timika-2:/data, timika-2-logs:/var/log/timika]
+    ports: ["8220:8200"]
+
+volumes:
+  timika-0:
+  timika-1:
+  timika-2:
+  timika-0-logs:
+  timika-1-logs:
+  timika-2-logs:

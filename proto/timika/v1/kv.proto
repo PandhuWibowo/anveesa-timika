@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+// Versioned key/value secrets (KV v2 semantics).
+service KvService {
+  // Immediate children of a folder ("" = root); sub-folders end in "/".
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Read(ReadRequest) returns (Secret);
+  rpc Write(WriteRequest) returns (Metadata);          // admin
+  // Soft-delete versions (default: the latest).
+  rpc Delete(DeleteRequest) returns (Metadata);        // admin
+  rpc GetMetadata(PathRequest) returns (Metadata);
+  // Remove the secret and every version.
+  rpc Destroy(PathRequest) returns (google.protobuf.Empty); // admin
+}
+
+message ListRequest {
+  string folder = 1;
+}
+
+message ListResponse {
+  repeated string keys = 1;
+}
+
+message ReadRequest {
+  string path = 1;
+  optional uint32 version = 2;
+}
+
+message PathRequest {
+  string path = 1;
+}
+
+message VersionMeta {
+  string created_time = 1;
+  optional string deletion_time = 2;
+}
+
+message Secret {
+  google.protobuf.Struct data = 1;
+  uint32 version = 2;
+  VersionMeta metadata = 3;
+}
+
+message WriteRequest {
+  string path = 1;
+  google.protobuf.Struct data = 2;
+  // Check-and-set: write only if the current version equals this (0 = must not exist).
+  optional uint32 cas = 3;
+}
+
+message DeleteRequest {
+  string path = 1;
+  repeated uint32 versions = 2;
+}
+
+message Metadata {
+  uint32 current_version = 1;
+  uint32 oldest_version = 2;
+  uint32 max_versions = 3;
+  string created_time = 4;
+  string updated_time = 5;
+  map<uint32, VersionMeta> versions = 6;
+}

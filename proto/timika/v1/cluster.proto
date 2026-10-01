@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Raft cluster administration and the join protocol.
+// (Replication between nodes runs on the separate, HMAC-signed cluster port.)
+service ClusterService {
+  rpc Configuration(google.protobuf.Empty) returns (PeersResponse);
+  rpc RemovePeer(RemovePeerRequest) returns (PeersResponse);              // admin
+  // Backup of the whole (encrypted) key space, streamed.
+  rpc Snapshot(google.protobuf.Empty) returns (stream SnapshotChunk);      // admin
+
+  // Public: a new node asks for a challenge, then proves it holds the
+  // cluster's keys by answering it.
+  rpc JoinChallenge(JoinChallengeRequest) returns (JoinChallengeResponse);
+  rpc JoinAnswer(JoinAnswerRequest) returns (PeersResponse);
+}
+
+message Peer {
+  string name = 1;
+  string api_addr = 2;
+  string cluster_addr = 3;
+  bool voter = 4;
+  bool leader = 5;
+  bool self = 6;
+}
+
+message PeersResponse {
+  repeated Peer peers = 1;
+}
+
+message RemovePeerRequest {
+  string node_id = 1;
+}
+
+message SnapshotChunk {
+  bytes data = 1;
+}
+
+message ClusterNode {
+  string name = 1;
+  string api_addr = 2;
+  string cluster_addr = 3;
+}
+
+message JoinChallengeRequest {
+  ClusterNode node = 1;
+}
+
+message JoinChallengeResponse {
+  // JSON-encoded SealConfig.
+  string seal_config = 1;
+  // base64 keyring blob (root-key encrypted).
+  string keyring = 2;
+  // base64 barrier-encrypted nonce.
+  string challenge = 3;
+  // JSON-encoded WrappedKey (auto-unseal only).
+  optional string wrapped_root = 4;
+}
+
+message JoinAnswerRequest {
+  ClusterNode node = 1;
+  string answer = 2;
+}

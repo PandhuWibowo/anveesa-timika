@@ -1,0 +1,317 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Privileged access: servers, who may use them, recorded terminal sessions.
+//
+// The interactive terminal itself is a WebSocket (GET /v1/bastion/connect):
+// browsers cannot do bidirectional gRPC streaming.
+service BastionService {
+  rpc ListAssets(google.protobuf.Empty) returns (ListAssetsResponse);
+  rpc CreateAsset(AssetInput) returns (CreateAssetResponse);        // admin
+  rpc UpdateAsset(UpdateAssetRequest) returns (Asset);              // admin
+  rpc DeleteAsset(AssetRef) returns (google.protobuf.Empty);        // admin
+  rpc TestAsset(TestAssetRequest) returns (TestResult);             // admin
+  rpc ResetHostKey(AssetRef) returns (Asset);                       // admin
+
+  rpc ListGrants(AssetRef) returns (ListGrantsResponse);            // admin
+  // Every grant on every server (e.g. to show a person's access).
+  rpc ListAllGrants(google.protobuf.Empty) returns (ListGrantsResponse); // admin
+  rpc CreateGrant(CreateGrantRequest) returns (Grant);              // admin
+  rpc DeleteGrant(DeleteGrantRequest) returns (google.protobuf.Empty); // admin
+
+  // Admins see all sessions, others their own.
+  rpc ListSessions(google.protobuf.Empty) returns (ListSessionsResponse);
+  rpc KillSession(SessionRef) returns (google.protobuf.Empty);      // admin
+  // asciicast v2: the first chunk is the header line, then event lines.
+  rpc GetRecording(SessionRef) returns (stream RecordingChunk);
+  // Commands run in terminal sessions, newest first. Admins see everyone's;
+  // others only their own sessions.
+  rpc ListCommands(ListCommandsRequest) returns (ListCommandsResponse);
+
+  // Files (SFTP) as `account` on a server — for anyone allowed to use that
+  // account. Uploads stream to PUT /v1/bastion/files/upload; downloads use the
+  // short-lived link from DownloadLink (GET /v1/bastion/files/download).
+  rpc ListFiles(FilePath) returns (ListFilesResponse);
+  rpc MakeDir(FilePath) returns (google.protobuf.Empty);
+  rpc RenameFile(RenameFileRequest) returns (google.protobuf.Empty);
+  rpc DeleteFiles(DeleteFilesRequest) returns (DeleteFilesResponse);
+  rpc DownloadLink(FilePath) returns (DownloadLinkResponse);
+  // Archives, made by the server's own tar / zip as the account.
+  rpc Compress(CompressRequest) returns (CompressResponse);
+  rpc Extract(FilePath) returns (ExtractResponse);
+  // A one-minute link that streams `names` in `dir` as one archive.
+  rpc ArchiveLink(ArchiveLinkRequest) returns (DownloadLinkResponse);
+}
+
+message Account {
+  string username = 1;
+  // password · key
+  string auth = 2;
+  // Last applied by timika on the server: none · password · nopasswd.
+  optional string sudo = 3;
+  // Extra groups timika added it to.
+  repeated string groups = 4;
+}
+
+message Asset {
+  string id = 1;
+  string name = 2;
+  string host = 3;
+  uint32 port = 4;
+  repeated string tags = 5;
+  string description = 6;
+  repeated Account accounts = 7;
+  optional string host_key = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  // Accounts the caller may connect as.
+  repeated string allowed_accounts = 11;
+}
+
+message ListAssetsResponse {
+  repeated Asset assets = 1;
+  bool can_manage = 2;
+}
+
+message AccountInput {
+  string username = 1;
+  // Leave both empty on update to keep the stored credential.
+  optional string password = 2;
+  optional string private_key = 3;
+  optional string passphrase = 4;
+  // Apply this account on the server — create it, set its password, sudo and
+  // groups — by signing in as `provision_via` (root, an account with sudo, or
+  // itself). A new account needs `password`; for an existing one it's optional.
+  bool provision = 5;
+  string provision_via = 6;
+  // With `provision`: "" keep · none · password (sudo asks for the password) ·
+  // nopasswd (sudo without a password).
+  string sudo = 7;
+  // With `provision`: extra groups to join if they exist (e.g. docker, adm).
+  repeated string groups = 8;
+}
+
+message AssetInput {
+  string name = 1;
+  string host = 2;
+  uint32 port = 3;
+  repeated string tags = 4;
+  string description = 5;
+  repeated AccountInput accounts = 6;
+  // Log in with the first account before saving, and pin the host key.
+  bool test = 7;
+}
+
+message TestResult {
+  bool ok = 1;
+  string account = 2;
+  optional string host_key = 3;
+  uint64 connect_ms = 4;
+  optional string error = 5;
+}
+
+message CreateAssetResponse {
+  Asset asset = 1;
+  optional TestResult test = 2;
+  // Accounts created / updated on the server, e.g. "deploy (created)".
+  repeated string provisioned = 3;
+}
+
+message UpdateAssetRequest {
+  string id = 1;
+  AssetInput asset = 2;
+}
+
+message AssetRef {
+  string id = 1;
+}
+
+message TestAssetRequest {
+  string id = 1;
+  optional string account = 2;
+}
+
+message Grant {
+  string id = 1;
+  string asset = 2;
+  // user · role
+  string subject_type = 3;
+  string subject = 4;
+  // Empty = every account on the server.
+  repeated string accounts = 5;
+  optional string expires_at = 6;
+  string created_by = 7;
+  string created_at = 8;
+  bool expired = 9;
+}
+
+message ListGrantsResponse {
+  repeated Grant grants = 1;
+}
+
+message CreateGrantRequest {
+  string asset = 1;
+  string subject_type = 2;
+  string subject = 3;
+  repeated string accounts = 4;
+  // Hours until it expires; absent = permanent.
+  optional int64 hours = 5;
+}
+
+message DeleteGrantRequest {
+  string asset = 1;
+  string grant_id = 2;
+}
+
+message Session {
+  string id = 1;
+  string user = 2;
+  string asset = 3;
+  string asset_name = 4;
+  string host = 5;
+  string account = 6;
+  optional string client_ip = 7;
+  string instance = 8;
+  string started_at = 9;
+  optional string ended_at = 10;
+  // connecting · live · closed · killed · failed · lost
+  string status = 11;
+  optional string error = 12;
+  uint32 cols = 13;
+  uint32 rows = 14;
+  uint64 bytes = 15;
+  uint32 chunks = 16;
+  bool truncated = 17;
+  uint32 commands = 18;
+}
+
+message ListSessionsResponse {
+  repeated Session sessions = 1;
+}
+
+message SessionRef {
+  string id = 1;
+}
+
+message ListCommandsRequest {
+  // Narrow to one session, one server (asset id) and/or one user.
+  string session = 1;
+  string asset = 2;
+  string user = 3;
+  // Substring match on the command.
+  string query = 4;
+  bool risky_only = 5;
+  // Default 200, max 1000.
+  uint32 limit = 6;
+}
+
+message Command {
+  string session = 1;
+  string time = 2;
+  // Seconds from the start of the session (to replay from there).
+  double offset = 3;
+  string command = 4;
+  // typed (exactly as typed) · screen (as shown after completion / history)
+  string source = 5;
+  // high · medium · absent
+  optional string risk = 6;
+  string user = 7;
+  string asset = 8;
+  string asset_name = 9;
+  string account = 10;
+}
+
+message ListCommandsResponse {
+  repeated Command commands = 1;
+  // More matched than `limit`.
+  bool truncated = 2;
+}
+
+message FilePath {
+  string asset = 1;
+  string account = 2;
+  // Absolute, or relative to the account's home; "" = home.
+  string path = 3;
+}
+
+message FileEntry {
+  string name = 1;
+  // dir · file · link · other
+  string kind = 2;
+  uint64 size = 3;
+  // e.g. drwxr-xr-x
+  string mode = 4;
+  optional string modified = 5;
+  uint32 uid = 6;
+  uint32 gid = 7;
+}
+
+message ListFilesResponse {
+  // The directory listed, resolved to an absolute path.
+  string path = 1;
+  repeated FileEntry entries = 2;
+}
+
+message RenameFileRequest {
+  string asset = 1;
+  string account = 2;
+  string from = 3;
+  string to = 4;
+}
+
+message DeleteFilesRequest {
+  string asset = 1;
+  string account = 2;
+  // Files, or directories (removed with everything inside).
+  repeated string paths = 3;
+}
+
+message DeleteFilesResponse {
+  uint32 deleted = 1;
+}
+
+message DownloadLinkResponse {
+  // Relative URL, valid for one minute.
+  string url = 1;
+  string name = 2;
+  uint64 size = 3;
+}
+
+message CompressRequest {
+  string asset = 1;
+  string account = 2;
+  // The folder the items are in.
+  string dir = 3;
+  // Names of files / folders in `dir`.
+  repeated string names = 4;
+  // zip · tar.gz · tar.xz · tar
+  string format = 5;
+  // Archive file name in `dir` (the extension is added if missing).
+  string archive = 6;
+}
+
+message CompressResponse {
+  string path = 1;
+  uint64 size = 2;
+}
+
+message ExtractResponse {
+  // The new folder the archive was unpacked into.
+  string dir = 1;
+}
+
+message ArchiveLinkRequest {
+  string asset = 1;
+  string account = 2;
+  string dir = 3;
+  repeated string names = 4;
+  // zip · tar.gz · tar.xz · tar
+  string format = 5;
+}
+
+message RecordingChunk {
+  bytes data = 1;
+}

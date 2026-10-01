@@ -1,0 +1,207 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Sign-in, sessions and user administration.
+// Signed-in calls carry the token in the `x-timika-token` metadata header
+// (or `authorization: Bearer …`).
+service AuthService {
+  // Public.
+  rpc GetLoginConfig(google.protobuf.Empty) returns (LoginConfig);
+  rpc GetCaptchaChallenge(google.protobuf.Empty) returns (CaptchaChallenge);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // Second step when Login answers mfa_required: the authenticator code (or a recovery code).
+  rpc VerifyMfa(VerifyMfaRequest) returns (LoginResponse);
+
+  // Your own session (any valid token, incl. a change-password-only one).
+  rpc LookupSelf(google.protobuf.Empty) returns (TokenInfo);
+  rpc RenewSelf(google.protobuf.Empty) returns (RenewResponse);
+  rpc RevokeSelf(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc ChangePassword(ChangePasswordRequest) returns (google.protobuf.Empty);
+
+  // Your own two-factor authentication (TOTP + recovery codes).
+  rpc GetMfaStatus(google.protobuf.Empty) returns (MfaStatus);
+  rpc BeginMfaSetup(google.protobuf.Empty) returns (MfaSetup);
+  // In a 2FA-setup-only session this also returns a full session.
+  rpc ConfirmMfaSetup(MfaCode) returns (MfaConfirmed);
+  rpc DisableMfa(MfaCode) returns (google.protobuf.Empty);
+  rpc NewRecoveryCodes(MfaCode) returns (RecoveryCodes);
+
+  // Administration.
+  rpc ListUsers(google.protobuf.Empty) returns (ListUsersResponse);
+  rpc GetUser(UserRef) returns (User);
+  rpc UpsertUser(UpsertUserRequest) returns (User);
+  rpc DeleteUser(UserRef) returns (google.protobuf.Empty);
+  rpc UnlockUser(UserRef) returns (User);
+  // Remove someone's 2FA (lost phone); admin.
+  rpc ResetUserMfa(UserRef) returns (User);
+}
+
+message Policy {
+  string profile = 1;
+  uint32 min_length = 2;
+  uint32 max_length = 3;
+  uint32 require_classes = 4;
+  uint32 max_age_days = 5;
+  uint32 history = 6;
+  uint32 lockout_threshold = 7;
+  uint32 lockout_minutes = 8;
+  uint32 session_idle_minutes = 9;
+  uint32 session_max_hours = 10;
+  bool breach_check = 11;
+}
+
+message CaptchaConfig {
+  // pow · turnstile · recaptcha · hcaptcha · geetest · tencent · none
+  string provider = 1;
+  optional string fallback = 2;
+  optional string site_key = 3;
+  optional string domain = 4;
+}
+
+message LoginConfig {
+  Policy policy = 1;
+  optional string banner = 2;
+  optional string banner_zh = 3;
+  bool banner_ack_required = 4;
+  optional string privacy_notice_url = 5;
+  CaptchaConfig captcha = 6;
+  // Who must use 2FA: off · admins · all.
+  string mfa_required = 7;
+}
+
+message CaptchaChallenge {
+  string algorithm = 1;
+  string challenge = 2;
+  uint64 maxnumber = 3;
+  string salt = 4;
+  string signature = 5;
+}
+
+message CaptchaSubmission {
+  string provider = 1;
+  string token = 2;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+  CaptchaSubmission captcha = 3;
+  bool banner_ack = 4;
+}
+
+message LastLogin {
+  string time = 1;
+  optional string ip = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string username = 2;
+  repeated string policies = 3;
+  optional string expires_at = 4;
+  optional string max_expires_at = 5;
+  int64 idle_timeout_secs = 6;
+  bool must_change_password = 7;
+  bool password_expired = 8;
+  optional string password_expires_at = 9;
+  optional LastLogin last_login = 10;
+  optional LastLogin last_failed_login = 11;
+  // Password OK; now send the 6-digit code with VerifyMfa(mfa_token). No session yet.
+  bool mfa_required = 12;
+  optional string mfa_token = 13;
+  // Signed in, but 2FA must be set up before anything else.
+  bool must_setup_mfa = 14;
+  bool used_recovery_code = 15;
+  uint32 recovery_codes_left = 16;
+}
+
+message VerifyMfaRequest {
+  string mfa_token = 1;
+  string code = 2;
+}
+
+message MfaStatus {
+  bool enabled = 1;
+  optional string enabled_at = 2;
+  uint32 recovery_remaining = 3;
+  bool required = 4;
+}
+
+message MfaSetup {
+  // Base32 secret, for typing into an app by hand.
+  string secret = 1;
+  string uri = 2;
+  // QR code of `uri`.
+  string qr_svg = 3;
+}
+
+message MfaCode {
+  string code = 1;
+}
+
+message MfaConfirmed {
+  // Shown once — each works one time if the phone is lost.
+  repeated string recovery_codes = 1;
+  optional LoginResponse session = 2;
+}
+
+message RecoveryCodes {
+  repeated string codes = 1;
+}
+
+message TokenInfo {
+  string display_name = 1;
+  repeated string policies = 2;
+  string created_at = 3;
+  optional string username = 4;
+  optional string expires_at = 5;
+  optional string max_expires_at = 6;
+}
+
+message RenewResponse {
+  optional string expires_at = 1;
+  optional string max_expires_at = 2;
+  bool renewable = 3;
+}
+
+message ChangePasswordRequest {
+  string old_password = 1;
+  string new_password = 2;
+}
+
+message User {
+  string username = 1;
+  repeated string policies = 2;
+  string created_at = 3;
+  string password_changed_at = 4;
+  optional string password_expires_at = 5;
+  bool must_change_password = 6;
+  bool disabled = 7;
+  optional string locked_until = 8;
+  uint32 failed_attempts = 9;
+  optional LastLogin last_login = 10;
+  optional LastLogin last_failed_login = 11;
+  bool mfa_enabled = 12;
+  bool mfa_required = 13;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  repeated string roles = 2;
+}
+
+message UserRef {
+  string username = 1;
+}
+
+message UpsertUserRequest {
+  string username = 1;
+  optional string password = 2;
+  // Empty = keep the current roles (new users default to read-only).
+  repeated string policies = 3;
+  optional bool must_change_password = 4;
+  optional bool disabled = 5;
+}

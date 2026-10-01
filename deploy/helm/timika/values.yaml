@@ -1,0 +1,124 @@
+# raft:  integrated storage — StatefulSet, one PVC per pod, no external database.
+#        `replicas` = Raft voters: 3 (tolerates 1 failure) or 5 (tolerates 2), never even.
+# redis: stateless replicas — Deployment on an external Redis (standalone,
+#        Sentinel or Cluster). Scale `replicas` freely; every pod serves traffic.
+backend: raft
+
+replicas: 3
+
+# backend=redis only.
+redis:
+  mode: standalone          # standalone | sentinel | cluster
+  url: redis://redis:6379   # standalone
+  sentinels: ""             # "s1:26379,s2:26379,s3:26379"
+  sentinelMaster: mymaster
+  clusterNodes: ""          # "n1:6379,n2:6379,n3:6379"
+  waitReplicas: 0           # 1 recommended when Redis has replicas (docs/REDIS.md)
+  # Secret with REDIS_PASSWORD (and optionally REDIS_USERNAME) keys.
+  existingSecret: ""
+
+# Auto-unseal (docs/AUTO-UNSEAL.md). shamir = operators unseal every pod by hand.
+seal:
+  type: shamir              # shamir | transit | awskms | static
+  transit:
+    addr: ""                # https://vault.example:8200
+    key: timika-unseal
+    mount: transit
+    namespace: ""
+    tokenSecret: ""         # Secret with key `token` (encrypt+decrypt on the key only)
+    caSecret: ""            # optional Secret with key `ca.crt`
+  awskms:
+    keyId: ""               # key ARN or alias/…
+    region: ""
+    endpoint: ""            # optional (VPC endpoint)
+    # Credentials: prefer IRSA — set serviceAccount.annotations
+    # eks.amazonaws.com/role-arn: arn:aws:iam::<acct>:role/<role with kms:Encrypt/Decrypt>
+  static:
+    keySecret: ""           # Secret with key `key` (32 bytes, base64). Lowest assurance.
+
+# Logs (docs/LOGGING.md): operational logs + the hash-chained audit log.
+logging:
+  level: info
+  format: json              # stdout: json | text
+  file:
+    enabled: true           # rotating JSON files in /var/log/timika
+    rotation: daily         # daily | hourly | never
+    maxFiles: 14
+  audit:
+    file: true              # /var/log/timika/audit-<pod>.log (hash-chained)
+    maxMb: 100
+    maxFiles: 10
+    fsync: false
+    syslog: ""              # udp://host:514 or tcp://host:601 — a copy that outlives the pod
+    failClosed: true        # refuse requests that can't be audited
+  persistence:
+    # raft: a PVC per pod (volumeClaimTemplate).
+    # redis (Deployment): set existingClaim to a ReadWriteMany claim, otherwise
+    # logs go to an emptyDir (lost with the pod) — ship them with audit.syslog.
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+    existingClaim: ""
+
+# Sign-in page (docs/LOGIN.md).
+login:
+  policy: us-nist           # us-nist | cn-mlps
+  banner: ""                # override the system-use notice ("" = profile default)
+  bannerZh: ""              # Chinese version
+  privacyNoticeUrl: ""
+  captcha:
+    provider: pow           # pow | turnstile | recaptcha | hcaptcha | geetest | tencent | none
+    fallback: pow           # used if the provider's script can't load (e.g. blocked region)
+    siteKey: ""
+    recaptchaDomain: www.google.com   # www.recaptcha.net for mainland China
+    # Secret with the provider's server-side keys as env vars, e.g. CAPTCHA_SECRET,
+    # or CAPTCHA_GEETEST_ID/KEY, or CAPTCHA_TENCENT_APP_ID/APP_SECRET +
+    # TENCENTCLOUD_SECRET_ID/KEY.
+    existingSecret: ""
+  # Set true only when an ingress/LB you control sets X-Forwarded-For.
+  trustXForwardedFor: false
+
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+image:
+  repository: anveesa-timika
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# backend=raft: per-pod persistent volume holding that node's Raft log + data.
+storage:
+  size: 1Gi
+  storageClass: ""        # "" = cluster default
+
+raft:
+  snapshotThreshold: 8192 # snapshot after N log entries
+  trailingLogs: 10000     # entries kept after a snapshot for lagging peers
+
+# TLS for the API (8200) and cluster (8201) listeners and for peer-to-peer calls.
+# The secret must hold tls.crt, tls.key and ca.crt (cert-manager's format), with
+# SANs covering *.<release>-timika-internal.<namespace>.svc and
+# <release>-timika.<namespace>.svc.
+tls:
+  enabled: false
+  secretName: timika-tls
+
+service:
+  type: ClusterIP
+  port: 8200
+
+podDisruptionBudget:
+  maxUnavailable: 1
+
+# Spread pods across Kubernetes nodes so one node failure takes out one voter.
+antiAffinity: soft        # soft | hard | none
+
+resources: {}
+#  requests: { cpu: 100m, memory: 128Mi }
+#  limits:   { memory: 512Mi }
+
+extraEnv: []
+#  - name: RUST_LOG
+#    value: info

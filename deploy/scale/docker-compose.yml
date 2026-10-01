@@ -1,0 +1,69 @@
+# Scale-out on plain Docker: N stateless timika replicas + shared Redis + a
+# seal-aware HAProxy in front.
+#
+#   docker compose -f deploy/scale/docker-compose.yml up -d --build --scale timika=3
+#   → http://localhost:8200   (HAProxy; replicas are not published)
+#
+# Scale any time: `… up -d --scale timika=5`.
+#
+# Unsealing new replicas:
+#   - SEAL_TYPE=shamir (default): they start SEALED; unseal all from any one container:
+#       docker compose -f deploy/scale/docker-compose.yml exec timika /app/timika operator unseal --all
+#   - auto-unseal (set SEAL_TYPE + its settings below, see docs/AUTO-UNSEAL.md):
+#       they unseal themselves within seconds — scaling needs no human.
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  timika:
+    build: ../..
+    image: anveesa-timika:dev
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+    environment:
+      STORAGE: redis
+      REDIS_MODE: standalone
+      REDIS_URL: redis://redis:6379
+      BIND_ADDR: 0.0.0.0:8200
+      # API_ADDR is auto-detected (the container IP) so replicas can reach each other.
+      RUST_LOG: info
+      # Behind HAProxy (option forwardfor): take the client IP from X-Forwarded-For.
+      TRUST_X_FORWARDED_FOR: "true"
+      LOGIN_POLICY: ${LOGIN_POLICY:-us-nist}             # or cn-mlps
+      CAPTCHA_PROVIDER: ${CAPTCHA_PROVIDER:-pow}
+      # Auto-unseal — pick one (docs/AUTO-UNSEAL.md):
+      SEAL_TYPE: ${SEAL_TYPE:-shamir}
+      SEAL_STATIC_KEY: ${SEAL_STATIC_KEY:-}                 # static: 32 bytes, base64
+      SEAL_TRANSIT_ADDR: ${SEAL_TRANSIT_ADDR:-}             # transit
+      SEAL_TRANSIT_KEY: ${SEAL_TRANSIT_KEY:-timika-unseal}
+      SEAL_TRANSIT_TOKEN: ${SEAL_TRANSIT_TOKEN:-}
+      SEAL_AWSKMS_KEY_ID: ${SEAL_AWSKMS_KEY_ID:-}           # awskms (+ AWS_* credentials)
+      SEAL_AWSKMS_REGION: ${SEAL_AWSKMS_REGION:-}
+    # One shared log volume; files are per replica (audit-{instance}.log,
+    # timika-{instance}.*.log), so replicas never write to the same file.
+    volumes:
+      - timika-logs:/var/log/timika
+    deploy:
+      replicas: 3
+
+  lb:
+    image: haproxy:2.9-alpine
+    depends_on: [timika]
+    environment:
+      TIMIKA_TARGET: timika
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports: ["8200:8200"]
+
+volumes:
+  redis-data:
+  timika-logs:

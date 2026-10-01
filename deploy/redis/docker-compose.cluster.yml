@@ -1,0 +1,58 @@
+# timika on Redis Cluster: 6 nodes (3 primaries + 3 replicas).
+#
+#   docker compose -f deploy/redis/docker-compose.cluster.yml up --build
+#   → http://localhost:8200
+#
+# All timika keys share the `{timika}` hash tag, so they live in one slot on one
+# shard (atomic multi-key commits); the other shards stay free for other apps.
+# Try a failover: stop the primary that owns the slot (see Storage engine page /
+# `redis-cli -c cluster keyslot "{timika}"`); its replica takes over in ~3s.
+#
+# timika runs inside this network on purpose: the cluster announces container
+# IPs, which aren't reachable from a macOS/Windows host.
+
+x-node: &node
+  image: redis:7-alpine
+  command: >
+    redis-server --cluster-enabled yes --cluster-config-file nodes.conf
+    --cluster-node-timeout 3000 --appendonly yes --appendfsync everysec
+    --maxmemory-policy noeviction
+
+networks:
+  rc:
+    ipam:
+      config: [{ subnet: 10.231.0.0/24 }]
+
+services:
+  redis-1: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.11 } } }
+  redis-2: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.12 } } }
+  redis-3: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.13 } } }
+  redis-4: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.14 } } }
+  redis-5: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.15 } } }
+  redis-6: { <<: *node, networks: { rc: { ipv4_address: 10.231.0.16 } } }
+
+  cluster-init:
+    image: redis:7-alpine
+    depends_on: [redis-1, redis-2, redis-3, redis-4, redis-5, redis-6]
+    networks: [rc]
+    restart: "no"
+    command: >
+      sh -c 'sleep 3 && redis-cli --cluster create
+      10.231.0.11:6379 10.231.0.12:6379 10.231.0.13:6379
+      10.231.0.14:6379 10.231.0.15:6379 10.231.0.16:6379
+      --cluster-replicas 1 --cluster-yes'
+
+  timika:
+    build: ../..
+    image: anveesa-timika:dev
+    restart: on-failure
+    networks: [rc]
+    depends_on:
+      cluster-init: { condition: service_completed_successfully }
+    environment:
+      STORAGE: redis
+      REDIS_MODE: cluster
+      REDIS_CLUSTER_NODES: 10.231.0.11:6379,10.231.0.12:6379,10.231.0.13:6379
+      REDIS_WAIT_REPLICAS: "1"
+      RUST_LOG: info
+    ports: ["8200:8200"]

@@ -1,0 +1,33 @@
+{{- $fullname := include "timika.fullname" . -}}
+{{- $scheme := include "timika.scheme" . -}}
+{{- if eq .Values.backend "redis" }}
+timika is starting as {{ .Values.replicas }} stateless replicas on Redis ({{ .Values.redis.mode }}).
+Every pod starts SEALED and won't receive traffic until it is unsealed.
+
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ $fullname }} -- /app/timika operator init
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ $fullname }} -- /app/timika operator unseal --all   # once per key
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ $fullname }} -- /app/timika operator instances
+
+Scaling up or rolling out adds SEALED pods: run `unseal --all` again. Rollouts wait
+(maxUnavailable: 0) until the new pods are unsealed.
+{{- else }}
+timika is starting as a {{ .Values.replicas }}-node Raft cluster. Every pod starts SEALED
+and will not become Ready until it is unsealed.
+
+1. Initialize ONE pod (keys + root token are printed once — store them safely):
+
+   kubectl -n {{ .Release.Namespace }} exec -it {{ $fullname }}-0 -- /app/timika operator init --shares 5 --threshold 3
+
+2. Unseal it with 3 keys:
+
+   kubectl -n {{ .Release.Namespace }} exec -it {{ $fullname }}-0 -- /app/timika operator unseal   # ×3, prompts for the key
+
+3. The other pods find the cluster via retry_join and show "joining". Unseal each
+   of them with the same keys ({{ $fullname }}-1 … {{ $fullname }}-{{ sub (int .Values.replicas) 1 }}); they join as voters.
+
+4. Clients use the service (any ready pod serves; followers forward to the leader):
+
+   {{ $scheme }}://{{ $fullname }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+After ANY pod restart it comes back sealed and must be unsealed again.
+{{- end }}

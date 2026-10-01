@@ -1,0 +1,91 @@
+# Docker Swarm: N stateless timika replicas on shared Redis, behind HAProxy.
+#
+#   docker stack deploy -c deploy/swarm/stack.redis.yml timika
+#   docker service scale timika_timika=5
+#
+# The image must be pullable by every node (push anveesa-timika to a registry
+# and set TIMIKA_IMAGE), except on a single-node swarm.
+#
+# Unseal every replica from any one task:
+#   docker exec -it $(docker ps -qf name=timika_timika | head -1) /app/timika operator unseal --all
+#
+# Or auto-unseal so scaling/rolling needs no human — e.g. a static key held as a
+# Swarm secret (see docs/AUTO-UNSEAL.md for transit / AWS KMS):
+#   head -c 32 /dev/urandom | base64 | docker secret create timika_seal_key -
+#   then set SEAL_TYPE=static + SEAL_STATIC_KEY_FILE below and uncomment `secrets`.
+#
+# Redis here is a single node for brevity. For production, point REDIS_* at a
+# Sentinel or Cluster deployment (see docs/REDIS.md) and set REDIS_WAIT_REPLICAS=1.
+
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    volumes: [redis-data:/data]
+    networks: [timika]
+    deploy:
+      replicas: 1
+      placement:
+        # Pin to one node so the volume (and your data) stays with it.
+        constraints: [node.role == manager]
+
+  timika:
+    image: ${TIMIKA_IMAGE:-anveesa-timika:dev}
+    environment:
+      STORAGE: redis
+      REDIS_MODE: standalone
+      REDIS_URL: redis://redis:6379
+      BIND_ADDR: 0.0.0.0:8200
+      # Each task advertises its own overlay IP (auto-detected); its id is the
+      # task's hostname, templated here to be readable in `operator instances`.
+      INSTANCE_ID: "timika-{{.Task.Slot}}-{{.Task.ID}}"
+      RUST_LOG: info
+      SEAL_TYPE: ${SEAL_TYPE:-shamir}
+      SEAL_STATIC_KEY_FILE: /run/secrets/timika_seal_key
+      TRUST_X_FORWARDED_FOR: "true"
+      LOGIN_POLICY: ${LOGIN_POLICY:-us-nist}
+    # secrets: [timika_seal_key]
+    # Per-node local volume; files are per task (audit-{instance}.log). For a
+    # central, node-independent audit trail also set AUDIT_SYSLOG (docs/LOGGING.md).
+    volumes:
+      - timika-logs:/var/log/timika
+    networks: [timika]
+    deploy:
+      replicas: 3
+      update_config:
+        # Replacement tasks start SEALED — roll one at a time so the rest keep serving.
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  lb:
+    image: haproxy:2.9-alpine
+    environment:
+      TIMIKA_TARGET: tasks.timika
+    configs:
+      - source: haproxy
+        target: /usr/local/etc/haproxy/haproxy.cfg
+    networks: [timika]
+    ports: ["8200:8200"]
+    deploy:
+      replicas: 2
+
+# secrets:
+#   timika_seal_key:
+#     external: true
+
+configs:
+  haproxy:
+    file: ../scale/haproxy.cfg
+
+networks:
+  timika:
+    driver: overlay
+
+volumes:
+  redis-data:
+  timika-logs:

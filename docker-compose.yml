@@ -1,0 +1,39 @@
+# anveesa-timika — vault + its storage engine.
+#
+# Redis IS the database: there is no Postgres. The flags below are not
+# optional tuning — they are what makes Redis safe to use as vault storage:
+#   --appendonly yes              log every write (survives restarts)
+#   --appendfsync everysec        fsync once a second (≤1s loss on power cut)
+#   --maxmemory-policy noeviction refuse writes when full instead of DELETING keys
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - timika-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  timika:
+    build: .
+    environment:
+      BIND_ADDR: 0.0.0.0:8200
+      REDIS_URL: redis://redis:6379
+      TIMIKA_PREFIX: timika
+      INSTANCE_ID: timika      # stable id → stable log file names across container re-creation
+      RUST_LOG: info
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - timika-logs:/var/log/timika   # app logs + hash-chained audit log
+    ports:
+      - "8200:8200"
+
+volumes:
+  timika-redis-data:
+  timika-logs:

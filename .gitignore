@@ -1,0 +1,22 @@
+# Rust
+/backend/target
+/backend/data
+**/*.rs.bk
+
+# Node / Vite
+/frontend/node_modules
+/frontend/dist
+frontend/.vite
+
+# Env & secrets
+.env
+*.local
+timika-init.json
+
+# OS / editor
+.DS_Store
+.idea
+.vscode
+
+# Codegraph index
+.codegraph/

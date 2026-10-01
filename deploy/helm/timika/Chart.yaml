@@ -1,0 +1,7 @@
+apiVersion: v2
+name: timika
+description: anveesa-timika — Vault-style secrets manager with integrated Raft storage (HA, no external database)
+type: application
+version: 0.2.0
+appVersion: "0.2.0"
+keywords: [secrets, vault, raft]

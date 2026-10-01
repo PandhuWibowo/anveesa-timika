@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+// Seal lifecycle and system status. Times are RFC 3339 strings.
+service SysService {
+  // Public: callable while sealed / uninitialized.
+  rpc Health(google.protobuf.Empty) returns (HealthResponse);
+  rpc GetSealStatus(google.protobuf.Empty) returns (SealStatus);
+  rpc Init(InitRequest) returns (InitResponse);
+  rpc Unseal(UnsealRequest) returns (UnsealResponse);
+  // Every instance / Raft peer and whether it is sealed.
+  rpc Instances(google.protobuf.Empty) returns (InstancesResponse);
+
+  // Signed in.
+  rpc Seal(SealRequest) returns (SealResponse);        // admin
+  rpc Rotate(google.protobuf.Empty) returns (KeyStatus); // admin
+  rpc GetKeyStatus(google.protobuf.Empty) returns (KeyStatus);
+  // Storage backend report (Redis settings or Raft state) — free-form.
+  rpc Storage(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc Audit(google.protobuf.Empty) returns (google.protobuf.Struct);
+  rpc AuditHash(AuditHashRequest) returns (AuditHashResponse); // admin
+}
+
+message HealthResponse {
+  string version = 1;
+  string engine = 2;
+  bool initialized = 3;
+  bool sealed = 4;
+  bool standby = 5;
+  optional string node = 6;
+  optional string leader = 7;
+}
+
+message SealStatus {
+  bool initialized = 1;
+  bool sealed = 2;
+  uint32 t = 3;
+  uint32 n = 4;
+  uint32 progress = 5;
+  string storage = 6;
+  optional string node = 7;
+  optional string joining = 8;
+  string seal_type = 9;
+  optional string auto_unseal = 10;
+  optional string auto_unseal_error = 11;
+  bool auto_unseal_paused = 12;
+}
+
+message InitRequest {
+  uint32 secret_shares = 1;
+  uint32 secret_threshold = 2;
+}
+
+message InitResponse {
+  repeated string keys = 1;
+  string root_token = 2;
+  string seal_type = 3;
+}
+
+message UnsealRequest {
+  string key = 1;
+  bool reset = 2;
+  // Also submit the key to every other instance.
+  bool all = 3;
+}
+
+message InstanceUnseal {
+  string id = 1;
+  optional bool sealed = 2;
+  uint32 progress = 3;
+  optional string error = 4;
+}
+
+message UnsealResponse {
+  SealStatus status = 1;
+  repeated InstanceUnseal instances = 2;
+}
+
+message Instance {
+  string id = 1;
+  string api_addr = 2;
+  optional bool sealed = 3;
+  bool stale = 4;
+  bool self = 5;
+  bool leader = 6;
+  bool voter = 7;
+  bool joining = 8;
+  string version = 9;
+}
+
+message InstancesResponse {
+  string storage = 1;
+  string self = 2;
+  repeated Instance instances = 3;
+}
+
+message SealRequest {
+  // Seal every instance, not just this one.
+  bool all = 1;
+}
+
+message SealResponse {
+  SealStatus status = 1;
+  google.protobuf.Struct report = 2;
+}
+
+message KeyStatus {
+  uint32 term = 1;
+  string install_time = 2;
+  uint32 terms = 3;
+  string encryption = 4;
+}
+
+message AuditHashRequest {
+  string input = 1;
+}
+
+message AuditHashResponse {
+  string hash = 1;
+}

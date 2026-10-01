@@ -1,0 +1,99 @@
+{{- if eq .Values.backend "redis" }}
+{{- $fullname := include "timika.fullname" . }}
+{{- $scheme := include "timika.scheme" . }}
+# Stateless scale-out: every pod is a full timika instance on the shared Redis.
+# Pods start SEALED; the Service only routes to unsealed (ready) pods.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}
+  labels: {{- include "timika.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels: {{- include "timika.selector" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Never remove a serving pod before its replacement is unsealed (ready):
+      # a rollout pauses until operators run `timika operator unseal --all`.
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels: {{- include "timika.selector" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "timika.serviceAccountName" . }}
+      securityContext:
+        runAsUser: 10001
+        runAsNonRoot: true
+        fsGroup: 10001        # so a mounted log claim is writable
+      {{- if ne .Values.antiAffinity "none" }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels: {{- include "timika.selector" . | nindent 20 }}
+      {{- end }}
+      containers:
+        - name: timika
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - { name: api, containerPort: 8200 }
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - { name: INSTANCE_ID, value: "$(POD_NAME)" }
+            - { name: API_ADDR, value: "{{ $scheme }}://$(POD_IP):8200" }
+            - { name: BIND_ADDR, value: "0.0.0.0:8200" }
+            - { name: STORAGE, value: redis }
+            - { name: REDIS_MODE, value: {{ .Values.redis.mode | quote }} }
+            - { name: REDIS_URL, value: {{ .Values.redis.url | quote }} }
+            - { name: REDIS_SENTINELS, value: {{ .Values.redis.sentinels | quote }} }
+            - { name: REDIS_SENTINEL_MASTER, value: {{ .Values.redis.sentinelMaster | quote }} }
+            - { name: REDIS_CLUSTER_NODES, value: {{ .Values.redis.clusterNodes | quote }} }
+            - { name: REDIS_WAIT_REPLICAS, value: {{ .Values.redis.waitReplicas | quote }} }
+            {{- include "timika.tlsEnv" . | nindent 12 }}
+            {{- include "timika.sealEnv" . | nindent 12 }}
+            {{- include "timika.logEnv" . | nindent 12 }}
+            {{- include "timika.loginEnv" . | nindent 12 }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.redis.existingSecret .Values.login.captcha.existingSecret }}
+          envFrom:
+            {{- with .Values.redis.existingSecret }}
+            - secretRef: { name: {{ . }} }
+            {{- end }}
+            {{- with .Values.login.captcha.existingSecret }}
+            - secretRef: { name: {{ . }} }
+            {{- end }}
+          {{- end }}
+          readinessProbe:
+            httpGet: { path: "/v1/sys/health?standbyok=true", port: api, scheme: {{ upper $scheme }} }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: "/v1/sys/health?standbyok=true&sealedok=true&uninitok=true", port: api, scheme: {{ upper $scheme }} }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            {{- include "timika.secretMounts" . | nindent 12 }}
+          {{- with .Values.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        {{- include "timika.secretVolumes" . | nindent 8 }}
+        - name: logs
+          {{- if and .Values.logging.persistence.enabled .Values.logging.persistence.existingClaim }}
+          persistentVolumeClaim: { claimName: {{ .Values.logging.persistence.existingClaim }} }
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}

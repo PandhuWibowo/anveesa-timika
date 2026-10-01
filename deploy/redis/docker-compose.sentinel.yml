@@ -1,0 +1,53 @@
+# timika on Redis Sentinel: 1 primary + 2 replicas, 3 sentinels (quorum 2).
+#
+#   docker compose -f deploy/redis/docker-compose.sentinel.yml up --build
+#   → http://localhost:8200
+#
+# Try a failover: `docker compose -f … stop redis-primary`. Sentinel promotes a
+# replica within ~3–5s; timika re-discovers it and keeps serving.
+#
+# timika runs inside this network on purpose: Sentinel hands out the primary's
+# container IP, which isn't reachable from a macOS/Windows host.
+
+x-redis: &redis
+  image: redis:7-alpine
+
+x-sentinel: &sentinel
+  image: redis:7-alpine
+  depends_on: [redis-primary]
+  command:
+    - sh
+    - -c
+    - |
+      printf 'port 26379\nsentinel resolve-hostnames yes\nsentinel monitor mymaster redis-primary 6379 2\nsentinel down-after-milliseconds mymaster 3000\nsentinel failover-timeout mymaster 10000\n' > /tmp/sentinel.conf
+      exec redis-sentinel /tmp/sentinel.conf
+
+services:
+  redis-primary:
+    <<: *redis
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+  redis-replica-1:
+    <<: *redis
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction --replicaof redis-primary 6379
+  redis-replica-2:
+    <<: *redis
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction --replicaof redis-primary 6379
+
+  sentinel-1: *sentinel
+  sentinel-2: *sentinel
+  sentinel-3: *sentinel
+
+  timika:
+    build: ../..
+    image: anveesa-timika:dev
+    restart: on-failure
+    depends_on: [sentinel-1, sentinel-2, sentinel-3, redis-replica-1, redis-replica-2]
+    environment:
+      STORAGE: redis
+      REDIS_MODE: sentinel
+      REDIS_SENTINELS: sentinel-1:26379,sentinel-2:26379,sentinel-3:26379
+      REDIS_SENTINEL_MASTER: mymaster
+      # Don't acknowledge a write until a replica has it — a failover can't lose it.
+      REDIS_WAIT_REPLICAS: "1"
+      RUST_LOG: info
+    ports: ["8200:8200"]

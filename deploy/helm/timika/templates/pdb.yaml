@@ -1,0 +1,11 @@
+# Voluntary disruptions (node drains, rolling upgrades) take down at most one
+# voter at a time, so quorum survives.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "timika.fullname" . }}
+  labels: {{- include "timika.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels: {{- include "timika.selector" . | nindent 6 }}

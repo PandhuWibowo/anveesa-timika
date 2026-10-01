@@ -1,0 +1,89 @@
+# Docker Swarm: 3-node integrated Raft cluster (no external database), behind HAProxy.
+#
+#   docker stack deploy -c deploy/swarm/stack.raft.yml timika
+#
+# Raft members need a STABLE identity and their OWN volume, so each member is its
+# own single-replica service (timika-0/1/2) rather than one scaled service. To go
+# to 5 members, copy a block and add it to RAFT_RETRY_JOIN and the LB target list.
+# On a multi-node swarm, pin each member to a node (placement constraint) so its
+# local volume follows it.
+#
+# Initialize ONE member, unseal it, then unseal the others (they auto-join):
+#   docker exec -it $(docker ps -qf name=timika_timika-0) /app/timika operator init
+#   docker exec -it $(docker ps -qf name=timika_timika-0) /app/timika operator unseal --all
+
+version: "3.8"
+
+x-member: &member
+  image: ${TIMIKA_IMAGE:-anveesa-timika:dev}
+  networks: [timika]
+  deploy:
+    replicas: 1
+    restart_policy:
+      condition: on-failure
+
+x-env: &env
+  STORAGE: raft
+  BIND_ADDR: 0.0.0.0:8200
+  CLUSTER_BIND_ADDR: 0.0.0.0:8201
+  RAFT_PATH: /data
+  TRUST_X_FORWARDED_FOR: "true"
+  RAFT_RETRY_JOIN: http://timika-0:8200,http://timika-1:8200,http://timika-2:8200
+  RUST_LOG: info,openraft=warn
+
+services:
+  timika-0:
+    <<: *member
+    hostname: timika-0
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-0
+      API_ADDR: http://timika-0:8200
+      CLUSTER_ADDR: http://timika-0:8201
+    volumes: [timika-0:/data, timika-0-logs:/var/log/timika]
+
+  timika-1:
+    <<: *member
+    hostname: timika-1
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-1
+      API_ADDR: http://timika-1:8200
+      CLUSTER_ADDR: http://timika-1:8201
+    volumes: [timika-1:/data, timika-1-logs:/var/log/timika]
+
+  timika-2:
+    <<: *member
+    hostname: timika-2
+    environment:
+      <<: *env
+      RAFT_NODE_ID: timika-2
+      API_ADDR: http://timika-2:8200
+      CLUSTER_ADDR: http://timika-2:8201
+    volumes: [timika-2:/data, timika-2-logs:/var/log/timika]
+
+  lb:
+    image: haproxy:2.9-alpine
+    configs:
+      - source: haproxy
+        target: /usr/local/etc/haproxy/haproxy.cfg
+    networks: [timika]
+    ports: ["8200:8200"]
+    deploy:
+      replicas: 2
+
+configs:
+  haproxy:
+    file: ./haproxy-raft.cfg
+
+networks:
+  timika:
+    driver: overlay
+
+volumes:
+  timika-0:
+  timika-1:
+  timika-2:
+  timika-0-logs:
+  timika-1-logs:
+  timika-2-logs:
