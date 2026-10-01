@@ -61,6 +61,22 @@ instances` list every replica with its seal state and address.
 Each replica advertises its own address. When `BIND_ADDR` is `0.0.0.0` and
 `API_ADDR` isn't set, the container or pod IP is detected automatically.
 
+## The bastion across replicas
+
+- **Terminals** live on the replica that holds the WebSocket. Session records,
+  recordings and command logs go to shared storage, so every replica lists and
+  replays them. **End session** sets a flag on the stored session; the owning
+  replica sees it within ~2 s, whichever replica you clicked on. A `live`
+  session whose replica stops heartbeating shows as `lost`.
+- **Files (SFTP)**: each replica keeps its own short-lived connection pool
+  (one per user · server · account, closed after 2 idle minutes). Download
+  links are signed with a key derived from the root key, so a link made on one
+  replica works on any other — no sticky sessions needed.
+- **Uploads and terminals** are long-lived HTTP / WebSocket requests: give the
+  load balancer generous idle timeouts (`timeout tunnel` in HAProxy).
+- Restarting or sealing a replica drops the terminals it was serving; people
+  press **Reconnect**, and the UI retries reads on its own.
+
 ---
 
 ## Plain Docker (multi-container)

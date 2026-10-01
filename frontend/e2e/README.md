@@ -1,6 +1,6 @@
 # End-to-end scenarios
 
-`make e2e` (or `cd frontend && bun e2e/run.ts [E | F07 …]`) runs 200 scenarios
+`make e2e` (or `cd frontend && bun e2e/run.ts [E | F07 …]`) runs 272 scenarios
 against real processes: fresh single-node and 3-node Raft vaults on random ports,
 a small SSH server (`backend/examples/ssh_target.rs`) for the bastion, and every
 client the product has — gRPC-Web (the UI's transport), native gRPC over HTTP/2,
@@ -16,6 +16,9 @@ plain HTTP, the terminal WebSocket and the `timika operator` CLI.
 | `scenarios/f_bastion.ts` | servers, host-key pinning, grants, web terminal, recordings, kill |
 | `scenarios/g_cluster.ts` | Raft join, standby health, linearizable follower reads, failover |
 | `scenarios/h_audit_cli.ts` | audit log, hash chain, fail-closed, CLI, TLS |
+| `scenarios/i_people_audit.ts` | roles (`ssh`), one-step user + grants, account provisioning (sudo, groups), command log, audit trail filters |
+| `scenarios/j_files.ts` | SFTP browse / upload / download links / rename / delete, archives (compress, extract, stream), hostile names |
+| `scenarios/k_mfa.ts` | TOTP setup, sign-in challenge, replay, recovery codes, required 2FA, admin reset |
 
 Each run writes `report.md` / `report.json` to its work dir (`$E2E_DIR`, default a
 temp dir); a full run also updates `REPORT.md` here.

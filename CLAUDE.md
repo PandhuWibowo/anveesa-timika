@@ -90,29 +90,35 @@ backend/src/
   core.rs         init / unseal (Shamir) / seal / rotate / keyring refresh / raft join
   token.rs        token entries, resolve() (expiry, disabled users)
   grpc/           the API: mod.rs (Ctx, who()/Need roles, AppError→Status, router with
-                  tonic-web + grpc.health), sys/kv/auth/bastion/cluster.rs services,
+                  tonic-web + grpc.health), sys/kv/auth/bastion/cluster/audit.rs services,
                   convert.rs (JSON↔Struct, times), client.rs (node→node + CLI calls)
   seal/           auto-unseal key services: transit (Vault/OpenBao), awskms (SigV4 +
                   credential chain), static; AutoSeal::wrap/unwrap
   logging.rs      operational logs: stdout + rotating JSON files (tracing-appender)
   audit.rs        audit log: middleware, hash chain, file (rotation) + syslog sinks, verify
   auth/           sign-in: policy.rs (us-nist / cn-mlps profiles), userpass.rs (accounts,
-                  lockout, sessions), captcha.rs (pow + turnstile/recaptcha/hcaptcha/geetest/tencent)
+                  lockout, sessions, MFA challenge), mfa.rs (TOTP RFC 6238 + recovery codes),
+                  captcha.rs (pow + turnstile/recaptcha/hcaptcha/geetest/tencent)
   cli.rs          `timika operator …` built-in CLI over gRPC (status/instances/init/unseal --all/seal --all/health)
   bastion/        servers, credentials, grants, SSH (russh), recorded sessions (asciicast),
                   commands.rs: per-session command log (only what the screen echoed — never hidden input)
                   files.rs: SFTP pool + signed download links · archive.rs: tar/zip commands (every name
                   quoted + ./-prefixed) · provision.rs: create accounts, sudo, groups
   kv.rs           KV v2 engine: versions, CAS, soft delete, destroy, folder listing
-  routes/         plain HTTP only: /v1/sys/health and the /v1/bastion/connect WebSocket
-proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster)
+  routes/         plain HTTP only: /v1/sys/health, the /v1/bastion/connect WebSocket,
+                  /v1/bastion/files/upload (PUT) and /download (GET, signed link)
+proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit)
 frontend/src/
   App.svelte      shell (sidebar/topbar/statusbar) or Gate when sealed/uninit/no token
   gen/            generated from proto (`bun run gen`: buf + protoc-gen-es) — don't edit
-  lib/            api.ts (Connect gRPC-Web clients), session/router/ui (.svelte.ts rune stores), nav.ts, types.ts
-  components/     CommandPalette (⌘K, incl. "connect to …"), ConfirmModal, ServerDrawer, Replay
-  views/          Gate, Login, Overview, Servers, Terminals (always mounted —
-                  sessions survive navigation; lib/terminals.svelte.ts), Sessions
+  lib/            api.ts (Connect gRPC-Web clients, errMsg/isNetworkError), session/router/ui
+                  (.svelte.ts rune stores), nav.ts, roles.ts, password.ts, auditText.ts, types.ts
+  components/     CommandPalette (⌘K, incl. "connect to …"), ConfirmModal, ServerDrawer +
+                  AccountCard (accounts + provisioning), UserDrawer, SessionsTable, Replay,
+                  FilesBrowser (SFTP + archives), MfaSetup, Captcha
+  views/          Gate, Login (password → 2FA), Overview, Servers, ServerDetail (Commands ·
+                  Files · Sessions · Activity · Access), Terminals (always mounted — sessions
+                  survive navigation; lib/terminals.svelte.ts), Sessions, People, Audit, Account
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)
@@ -153,6 +159,7 @@ scripts/raft-dev.sh   local 3-node cluster
 
 ## Roadmap (not built yet)
 
-Policies (path ACLs) + non-root tokens with TTL · audit log · rekey (new shares) ·
+Policies (path ACLs) + non-root tokens with TTL · rekey (new shares) ·
 snapshot **restore** endpoint · autopilot (dead-server cleanup) · GCP/Azure KMS seals ·
-seal migration back to Shamir / between KMSs · more secret engines (transit, dynamic DB creds).
+seal migration back to Shamir / between KMSs · more secret engines (transit, dynamic DB creds) ·
+bastion: command capture for multi-line pastes, in-browser file editor, folder upload.

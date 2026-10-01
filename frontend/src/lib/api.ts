@@ -37,5 +37,12 @@ export const audit = createClient(AuditService, transport)
 
 export const isCode = (e: unknown, code: Code) => e instanceof ConnectError && e.code === code
 
+/** The browser couldn't reach the server at all (restart, network blip). */
+export const isNetworkError = (e: unknown) =>
+  (e instanceof ConnectError && /failed to fetch|networkerror|load failed|network connection/i.test(e.rawMessage)) ||
+  (e instanceof TypeError && /fetch|network/i.test(e.message))
+
 export const errMsg = (e: unknown) =>
-  e instanceof ConnectError ? e.rawMessage || Code[e.code] : e instanceof Error ? e.message : String(e)
+  isNetworkError(e)
+    ? "Can't reach the server — check your connection; it retries on its own."
+    : e instanceof ConnectError ? e.rawMessage || Code[e.code] : e instanceof Error ? e.message : String(e)

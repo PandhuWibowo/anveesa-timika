@@ -20,9 +20,9 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 
 | Role | Can call |
 |------|----------|
-| none | `SysService` Health · GetSealStatus · Init · Unseal · Instances, `AuthService` GetLoginConfig · GetCaptchaChallenge · Login, `ClusterService` JoinChallenge · JoinAnswer |
-| any session (incl. *change-password*-only) | `AuthService` LookupSelf · RenewSelf · RevokeSelf · ChangePassword |
-| `ssh` | only the bastion: ListAssets (servers granted to them), the terminal, ListSessions/GetRecording (their own) — no vault data |
+| none | `SysService` Health · GetSealStatus · Init · Unseal · Instances, `AuthService` GetLoginConfig · GetCaptchaChallenge · Login · VerifyMfa (with the `mfa_challenge` from Login), `ClusterService` JoinChallenge · JoinAnswer |
+| any session (incl. the restricted *change-password* and *mfa-setup* sign-ins) | `AuthService` LookupSelf · RenewSelf · RevokeSelf · ChangePassword · GetMfaStatus · BeginMfaSetup · ConfirmMfaSetup (an *mfa-setup* session comes back as a full one) · DisableMfa · NewRecoveryCodes |
+| `ssh` | only the bastion: ListAssets (servers granted to them), the terminal, files, ListSessions/GetRecording/ListCommands (their own) — no vault data |
 | `read-only` | the `ssh` rights plus reads: KV List/Read/GetMetadata, GetKeyStatus, Storage, Audit, Configuration |
 | `admin` / root | everything |
 
@@ -31,7 +31,7 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 | Code | When |
 |------|------|
 | `UNAUTHENTICATED` (16) | missing, unknown or expired token; disabled user |
-| `PERMISSION_DENIED` (7) | role too low, password change required, captcha failed, account locked |
+| `PERMISSION_DENIED` (7) | role too low, password change or 2FA setup required (restricted session), captcha failed, wrong 2FA code, account locked |
 | `FAILED_PRECONDITION` (9) | `vault is sealed` · `vault is not initialized` |
 | `INVALID_ARGUMENT` (3) | bad path, weak password, missing field |
 | `NOT_FOUND` (5) | secret / version / user / server not found |
@@ -46,11 +46,12 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 |---------|------|
 | `SysService` | Health · GetSealStatus · Init · Unseal (`all`: every instance; `reset`) · Instances · Seal (`all`) · Rotate · GetKeyStatus · Storage · Audit · AuditHash |
 | `KvService` | List · Read (`version`) · Write (`cas`) · Delete (soft, `versions`) · GetMetadata · Destroy |
-| `AuthService` | GetLoginConfig · GetCaptchaChallenge · Login · LookupSelf · RenewSelf · RevokeSelf · ChangePassword · ListUsers · GetUser · UpsertUser · DeleteUser · UnlockUser |
+| `AuthService` | GetLoginConfig · GetCaptchaChallenge · Login (→ a session, or `mfa_required` + `mfa_challenge`, or a restricted `mfa-setup` session when 2FA is required but not set up) · VerifyMfa (TOTP or recovery code; challenge lasts 5 min / 5 tries) · LookupSelf · RenewSelf · RevokeSelf · ChangePassword · GetMfaStatus · BeginMfaSetup (secret + QR SVG) · ConfirmMfaSetup (→ 10 recovery codes) · DisableMfa · NewRecoveryCodes · ListUsers · GetUser · UpsertUser · DeleteUser · UnlockUser · ResetUserMfa (admin) |
 | `BastionService` (files) | ListFiles · MakeDir · RenameFile · DeleteFiles · DownloadLink (one-minute signed link) · Compress (zip / tar.gz / tar.xz / tar, made by the server's own tar / zip) · Extract (into a new folder) · ArchiveLink (stream a folder / selection as one archive) — SFTP as an account you may use; uploads capped by `FILES_MAX_UPLOAD_MB` (4096) |
-| `BastionService` | ListAssets · CreateAsset (`test`) · UpdateAsset · DeleteAsset · TestAsset · ResetHostKey · ListGrants · CreateGrant · DeleteGrant · ListSessions · KillSession · GetRecording (server stream, asciicast v2) |
+| `BastionService` | ListAssets · CreateAsset (`test`) · UpdateAsset · DeleteAsset · TestAsset · ResetHostKey · ListGrants · ListAllGrants · CreateGrant · DeleteGrant · ListSessions · KillSession · GetRecording (server stream, asciicast v2) · ListCommands (per server or session; `query`, `risky`) |
+| `BastionService` (accounts on the VM) | `AccountInput.provision` creates/updates the Linux user over SSH before saving: `provision_via` (an account on the same server, e.g. `root`, or the account itself), `password` (set with `chpasswd`), `sudo` (`keep` · `none` · `password` · `nopassword`, a `visudo`-checked file in `/etc/sudoers.d`), `groups` (`usermod -aG`; missing groups are reported, not created) |
 | `ClusterService` | Configuration · RemovePeer · Snapshot (server stream) · JoinChallenge · JoinAnswer |
-| `AuditService` | ListEvents (newest first; filter by user, text, category, outcome; routine reads hidden unless `include_routine`) · Verify (hash chain) — admin |
+| `AuditService` | ListEvents (newest first; filter by user, text, category incl. `files`, outcome, `server`; routine reads hidden unless `include_routine`) · Verify (hash chain) — admin |
 
 Times are RFC 3339 strings. Free-form reports (`Storage`, `Audit`, `SealResponse.report`)
 are `google.protobuf.Struct`.

@@ -3,8 +3,8 @@
   // audited action about it (config, access, tests, refused connections) and
   // who can reach it now.
   import { onMount } from 'svelte'
-  import { ArrowLeft, SquareTerminal, Pencil, ShieldCheck, ShieldAlert, ChevronDown, Loader2, ExternalLink, UserRound, Users, Activity, Search, Play } from '@lucide/svelte'
-  import { bastion, audit, errMsg } from '../lib/api'
+  import { ArrowLeft, SquareTerminal, Pencil, ShieldCheck, ShieldAlert, ChevronDown, Loader2, ExternalLink, UserRound, Users, Activity, Search, Play, RefreshCw } from '@lucide/svelte'
+  import { bastion, audit, errMsg, isNetworkError } from '../lib/api'
   import { isAdmin } from '../lib/session.svelte'
   import { navigate } from '../lib/router.svelte'
   import { openTerminal, loadXterm } from '../lib/terminals.svelte'
@@ -37,7 +37,12 @@
   let editing = $state(false)
   const admin = isAdmin()
 
+  let offline = $state(false)
+  let updated = $state<Date | null>(null)
+  let refreshing = $state(false)
+
   async function load() {
+    refreshing = true
     try {
       const [a, s] = await Promise.all([bastion.listAssets({}), bastion.listSessions({})])
       asset = a.assets.find((x) => x.id === id) ?? null
@@ -52,13 +57,23 @@
         grants = g.grants
       }
       error = asset ? '' : `No server "${id}" — it was deleted, or you have no access to it.`
-    } catch (e) { error = errMsg(e) } finally { loading = false }
+      offline = false
+      updated = new Date()
+    } catch (e) {
+      // A blip (server restarting, network) isn't an error to keep on screen:
+      // say so quietly and keep the last data until the next refresh works.
+      if (isNetworkError(e)) offline = true
+      else error = errMsg(e)
+    } finally { loading = false; refreshing = false }
   }
   onMount(() => {
     load()
     loadXterm()
-    const t = setInterval(() => { if (!document.hidden) load() }, 8000)
-    return () => clearInterval(t)
+    const t = setInterval(() => { if (!document.hidden) load() }, 5000)
+    // Coming back to the tab: refresh right away.
+    const onVisible = () => { if (!document.hidden) load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVisible) }
   })
 
   async function loadCommands() {
@@ -174,12 +189,16 @@
             {/if}
           </div>
 
+          {#if offline}<div class="notice notice--warning sd-offline"><Loader2 size={13} class="spin" /> Reconnecting to the server… showing what was loaded {updated ? updated.toLocaleTimeString() : 'earlier'}.</div>{/if}
           {#if error}<div class="notice notice--error">{error}</div>{/if}
 
           {#if tab === 'commands'}
             <div class="sd-bar">
               <div class="sd-search"><Search size={14} /><input bind:value={cmdQuery} oninput={onCmdSearch} placeholder="Search commands…" /></div>
               <label class="sd-toggle"><input type="checkbox" bind:checked={riskyOnly} onchange={() => loadCommands()} /> risky only {#if riskCount}<span class="badge badge--danger">{riskCount} high</span>{/if}</label>
+              <button class="icon-btn sd-refresh" title={updated ? `Updated ${updated.toLocaleTimeString()} — refreshes every 5 s` : 'Refresh'} onclick={load}>
+                <RefreshCw size={13} class={refreshing ? 'spin' : ''} />
+              </button>
             </div>
             <div class="data-table-wrap">
               <table class="data-table">
@@ -294,6 +313,8 @@
   .sd-cmd :global(.badge) { margin-right: 6px; }
   .sd-cmd--high td { background: var(--danger-bg); }
   .sd-cmd-act { width: 40px; text-align: right; }
+  .sd-offline { display: flex; align-items: center; gap: 8px; margin: 8px 12px 0; }
+  .sd-refresh { margin-left: 6px; }
   .sd-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
   .tl { padding: 0 14px 14px; }
   .tl__day { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: 14px 0 6px; }
