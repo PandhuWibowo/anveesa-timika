@@ -92,7 +92,7 @@
           <div class="page-card__head">
             <div>
               <div class="page-card__title">Engine</div>
-              <div class="page-card__sub">Live readings from the barrier and Redis</div>
+              <div class="page-card__sub">Live readings from the barrier and {isRaft ? 'Raft' : 'Redis'}</div>
             </div>
           </div>
           <div class="page-card__body">

@@ -255,7 +255,6 @@
 
     {#if error}<div class="gate__error">{error}</div>{/if}
   </div>
-  <div class="gate__foot">Secrets at rest, keys in memory.</div>
 </div>
 
 <style>
@@ -296,5 +295,4 @@
   .gate__fanout { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
   .gate__fanout-row { display: flex; justify-content: space-between; gap: 8px; color: var(--text-muted); }
   .gate__ok { color: var(--success); }
-  .gate__foot { font-size: 11px; color: var(--text-muted); }
 </style>

@@ -7,6 +7,8 @@ Sentinel / Cluster). People reach servers **through** timika: one-click web
 terminals, files over SFTP, every session recorded and every command logged,
 with no keys on anyone's laptop.
 
+![Servers](docs/screenshots/servers.jpg)
+
 ```
  Browser (Svelte 5) ── gRPC-Web ─┐                       ┌─ SSH / SFTP ─▶ your servers
  CLI / services ───── gRPC ──────┤                       │   (pinned host keys, stored creds)
@@ -60,6 +62,33 @@ With Redis instead: `make redis && make dev` (`STORAGE=redis` is the default in
 
 Sign-in follows US (NIST) or China (等保 2.0) policy profiles with captchas for
 both regions, optional or required 2FA ([LOGIN.md](docs/LOGIN.md)).
+
+### Screenshots
+
+**A server's command log** — every command typed in a web terminal, who ran it,
+risky ones flagged; ▶ replays the session from that moment.
+
+![Server page: commands](docs/screenshots/commands.jpg)
+
+**Files over SFTP** — browse, upload, download, compress and extract on the server.
+
+![Server page: files](docs/screenshots/files.jpg)
+
+**Sessions** — every terminal session recorded, with replay and download.
+
+![Sessions](docs/screenshots/sessions.jpg)
+
+**People** — roles, 2FA, how many servers each person reaches.
+
+![People](docs/screenshots/people.jpg)
+
+**Audit trail** — who did what, to what, from where; hash-chained.
+
+![Audit trail](docs/screenshots/audit.jpg)
+
+<p align="center"><img src="docs/screenshots/login.jpg" width="420" alt="Sign-in"></p>
+
+<sub>Screenshots are from a demo vault with made-up servers and people.</sub>
 
 ### Redis Sentinel / Cluster
 
