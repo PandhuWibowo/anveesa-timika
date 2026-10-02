@@ -156,7 +156,8 @@ impl russh::server::Handler for Target {
 
     async fn channel_eof(&mut self, channel: ChannelId, session: &mut Session) -> Result<(), Self::Error> {
         let Some(cmd) = self.exec.take() else { return Ok(()) };
-        let input = String::from_utf8_lossy(&std::mem::take(&mut self.stdin)).into_owned();
+        let raw = std::mem::take(&mut self.stdin);
+        let input = String::from_utf8_lossy(&raw).into_owned();
         let status = if cmd == "sudo -n true" {
             0
         } else if cmd == "sh -s" && input.starts_with("# timika-metrics") {
@@ -218,10 +219,16 @@ impl russh::server::Handler for Target {
             tokio::spawn(async move {
                 use tokio::io::AsyncReadExt;
                 let mut child = match tokio::process::Command::new("sh").arg("-c").arg(&real).current_dir(&root)
+                    .stdin(std::process::Stdio::piped())
                     .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).spawn() {
                     Ok(c) => c,
                     Err(_) => { let _ = handle.exit_status_request(channel, 127).await; let _ = handle.close(channel).await; return; }
                 };
+                // What the client sent before EOF is the command's stdin (uploads).
+                if let Some(mut stdin) = child.stdin.take() {
+                    use tokio::io::AsyncWriteExt;
+                    let _ = stdin.write_all(&raw).await;
+                }
                 let mut out = child.stdout.take().unwrap();
                 let mut err = child.stderr.take().unwrap();
                 let mut buf = vec![0u8; 32 * 1024];

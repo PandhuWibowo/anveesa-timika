@@ -1,5 +1,6 @@
 mod automation;
 mod bastion;
+mod containers;
 mod sys;
 
 use axum::routing::get;
@@ -23,6 +24,8 @@ pub fn http_router() -> Router<AppState> {
         .route("/bastion/connect", get(bastion::connect))
         .route("/bastion/files/download", get(bastion::download))
         .route("/bastion/files/upload", axum::routing::put(bastion::upload))
+        .route("/containers/download", get(containers::download))
+        .route("/containers/upload", axum::routing::put(containers::upload))
         .route("/automation/trigger/:id", axum::routing::post(automation::trigger))
         .route(
             "/automation/hooks/:id",

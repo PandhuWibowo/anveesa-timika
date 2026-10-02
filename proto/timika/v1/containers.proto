@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Working with containers on a monitored server — Docker or Podman, whichever
+// it runs: a container's details and files, images and volumes. Everything
+// runs `docker` / `podman` over SSH as the server's
+// monitoring account and is admin only (it reads and changes what is inside
+// containers).
+//
+// A shell inside a container is the web terminal with `container=<name>`
+// (`GET /v1/bastion/connect`); file transfer is
+// `GET /v1/containers/download?t=` (from DownloadLink) and
+// `PUT /v1/containers/upload?asset&container&path`.
+service ContainerService {
+  // Image, command, environment, mounts, networks, ports, restart policy.
+  rpc InspectContainer(ContainerRef) returns (ContainerDetail);
+
+  // A folder inside the container.
+  rpc ListFiles(ContainerPath) returns (ContainerFiles);
+  rpc MakeDir(ContainerPath) returns (google.protobuf.Empty);
+  rpc DeleteFiles(ContainerPaths) returns (google.protobuf.Empty);
+  // A one-minute link: a file as it is, a folder as a .tar.
+  rpc DownloadLink(ContainerPath) returns (ContainerLink);
+
+  rpc ListImages(RuntimeHost) returns (ListImagesResponse);
+  rpc RemoveImage(ImageRef) returns (ActionResult);
+  // Remove dangling images (untagged, unused).
+  rpc PruneImages(RuntimeHost) returns (ActionResult);
+
+  rpc ListVolumes(RuntimeHost) returns (ListVolumesResponse);
+  rpc RemoveVolume(VolumeRef) returns (ActionResult);
+  // Remove volumes no container uses.
+  rpc PruneVolumes(RuntimeHost) returns (ActionResult);
+}
+
+message RuntimeHost {
+  string asset = 1;
+}
+
+message ContainerRef {
+  string asset = 1;
+  string name = 2;
+}
+
+message ContainerPath {
+  string asset = 1;
+  string name = 2;
+  // Absolute path inside the container.
+  string path = 3;
+}
+
+message ContainerPaths {
+  string asset = 1;
+  string name = 2;
+  repeated string paths = 3;
+}
+
+message EnvVar {
+  string name = 1;
+  string value = 2;
+}
+
+message Mount {
+  // volume · bind · tmpfs
+  string kind = 1;
+  // Volume name or host path.
+  string source = 2;
+  string destination = 3;
+  bool read_only = 4;
+}
+
+message ContainerNetwork {
+  string name = 1;
+  string ip = 2;
+}
+
+message ContainerDetail {
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  string command = 4;
+  string created = 5;
+  string started = 6;
+  string state = 7;
+  string health = 8;
+  int32 exit_code = 9;
+  string restart_policy = 10;
+  string working_dir = 11;
+  string user = 12;
+  repeated EnvVar env = 13;
+  repeated Mount mounts = 14;
+  repeated ContainerNetwork networks = 15;
+  // "0.0.0.0:8080 → 80/tcp"
+  repeated string ports = 16;
+  // Docker Compose project / service, when it is one.
+  string compose_project = 17;
+  string compose_service = 18;
+}
+
+message ContainerFile {
+  string name = 1;
+  // dir · file · link · other
+  string kind = 2;
+  uint64 size = 3;
+  // Unix seconds.
+  int64 modified = 4;
+  // "rwxr-xr-x"
+  string mode = 5;
+}
+
+message ContainerFiles {
+  string path = 1;
+  repeated ContainerFile entries = 2;
+}
+
+message ContainerLink {
+  string url = 1;
+  string name = 2;
+}
+
+message Image {
+  string id = 1;
+  string repository = 2;
+  string tag = 3;
+  uint64 size = 4;
+  // "3 weeks ago"
+  string created = 5;
+  // Containers made from it.
+  repeated string used_by = 6;
+  bool dangling = 7;
+  // docker · podman
+  string runtime = 8;
+}
+
+message ListImagesResponse {
+  repeated Image images = 1;
+}
+
+message ImageRef {
+  string asset = 1;
+  // Image id (or repository:tag).
+  string image = 2;
+  // docker · podman (from the listing).
+  string runtime = 3;
+}
+
+message Volume {
+  string name = 1;
+  string driver = 2;
+  string mountpoint = 3;
+  // Bytes; absent when Docker didn't report it.
+  optional uint64 size = 4;
+  repeated string used_by = 5;
+  string runtime = 6;
+}
+
+message ListVolumesResponse {
+  repeated Volume volumes = 1;
+}
+
+message VolumeRef {
+  string asset = 1;
+  string name = 2;
+  string runtime = 3;
+}
+
+message ActionResult {
+  bool ok = 1;
+  // What the runtime said.
+  string output = 2;
+}

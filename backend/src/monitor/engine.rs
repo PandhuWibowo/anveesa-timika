@@ -348,6 +348,7 @@ impl Engine {
                     rec.numbers = Some(n);
                     rec.disks = raw.disks.clone();
                     rec.containers = raw.containers.clone();
+                    rec.runtimes = raw.runtimes.clone();
                     rec.failed_units = raw.failed_units.clone();
                     rec.counters = Some(super::Counters { now: raw.now, uptime: raw.uptime, cpu: raw.cpu, net: raw.net, io: raw.io });
                     m.prev = Some(raw);

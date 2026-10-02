@@ -62,7 +62,8 @@ With Redis instead: `make redis && make dev` (`STORAGE=redis` is the default in
 | **Sessions** | Every recorded session — replay, download `.cast`, end live ones |
 | **People** | Users, roles (SSH access · Vault reader · Administrator), 2FA status, server grants |
 | **Audit trail** | Who did what, filterable, live, CSV export, integrity check |
-| **Monitoring** | Every server's CPU, memory, disk, network, load, temperature and failed services, plus **Docker containers** (per-container history, logs, start / stop / restart), with history (1 h – 90 days) and alerts to Slack / Teams / Telegram. **No agent to install**: read over the SSH access timika already has ([MONITORING.md](docs/MONITORING.md)) |
+| **Monitoring** | Every server's CPU, memory, disk, network, load, temperature and failed services, plus **containers** (Docker or Podman: per-container history, logs, start / stop / restart), with history (1 h – 90 days) and alerts to Slack / Teams / Telegram. **No agent to install**: read over the SSH access timika already has ([MONITORING.md](docs/MONITORING.md)) |
+| **Containers** | **Docker and Podman** containers on your servers: a **shell inside a container** (recorded), a **file browser** with upload / download of files and folders, logs, details, start / stop / restart · **Images** and **Volumes** with sizes, usage and clean-up ([CONTAINERS.md](docs/CONTAINERS.md)) |
 | **Infrastructure** | Git repositories with Terraform / OpenTofu, Ansible and Pulumi projects found automatically · **Plan → Apply** that exact plan · run options (workspace, destroy, limit, tags, extra vars) · Ansible against timika's servers by tag · code browser · approvals · cron schedules with drift alerts · Slack / Teams / Telegram notifications · CI trigger · push webhooks ([AUTOMATION.md](docs/AUTOMATION.md)) |
 | **My account** | Password and two-factor authentication |
 
@@ -176,6 +177,7 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 
 - [`docs/ACCESS.md`](docs/ACCESS.md): **servers, terminals, command log, files (SFTP) and archives, sessions, people, roles and the audit trail** — the user & admin guide.
 - [`docs/MONITORING.md`](docs/MONITORING.md): **agentless server monitoring** — what is read, history, alert rules, notifications.
+- [`docs/CONTAINERS.md`](docs/CONTAINERS.md): **containers, images, volumes (Docker and Podman)** — shell and files inside a container, logs, clean-up.
 - [`docs/AUTOMATION.md`](docs/AUTOMATION.md): **infrastructure from Git** — connect a repository, runner servers, plan → apply, state in the vault, variables & secrets, push webhooks.
 - [`docs/API.md`](docs/API.md): the gRPC API (services, auth, status codes, gRPC-Web, load balancers).
 - [`docs/PERSISTENCE.md`](docs/PERSISTENCE.md): how storage works, and how to make Redis durable enough for a vault.
@@ -192,6 +194,6 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 |-------|------|
 | Backend | Rust · axum 0.7 · tonic 0.12 (gRPC + gRPC-Web) · tokio · aes-gcm · sharks (Shamir) · redis-rs 0.27 · openraft 0.9 + redb 2 · russh 0.63 + russh-sftp · argon2 · TOTP (RFC 6238) · auto-unseal: Transit / AWS KMS (SigV4) / static |
 | Frontend | Svelte 5 (runes) · Vite 6 · TypeScript · Connect (gRPC-Web, protobuf-es) · TanStack Query · xterm.js · @lucide/svelte |
-| Tests | `make test` (unit + type checks) · `make e2e` — 306 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
+| Tests | `make test` (unit + type checks) · `make e2e` — 313 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
 | Storage | Redis 7 standalone / Sentinel / Cluster **or** integrated Raft |
 | Deploy | Docker · compose (scaled) · Docker Swarm stacks · Helm (Deployment/StatefulSet) · systemd · HAProxy |

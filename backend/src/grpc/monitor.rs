@@ -83,6 +83,7 @@ fn container_pb(c: &mon::Container) -> pb::Container {
         mem_limit: c.mem_limit,
         rx: c.rx,
         tx: c.tx,
+        runtime: c.runtime.clone(),
     }
 }
 
@@ -102,17 +103,17 @@ impl Ctx {
 }
 
 impl Ctx {
-    /// `docker <args> <name>` on a monitored server, as its monitoring account.
-    /// The name must be one of the containers timika last saw there.
-    async fn docker(&self, asset: &str, name: &str, args: &str, max: usize) -> AppResult<(u32, String)> {
+    /// A command about one container on a monitored server, as its monitoring
+    /// account, with the container's own runtime (docker / podman). The name
+    /// must be one of the containers timika last saw there.
+    async fn on_container(&self, asset: &str, name: &str, cmd: impl Fn(&str) -> String, max: usize) -> AppResult<(u32, String)> {
         let core = &self.st.core;
         let cfg: SystemCfg = core.get_json(&mon::system_path(asset)).await?.ok_or_else(|| AppError::NotFound("that server is not monitored".into()))?;
         let rec: LatestRec = core.get_json(&mon::latest_path(asset)).await?.ok_or_else(|| AppError::NotFound("no reading of that server yet".into()))?;
-        if !mon::collect::valid_container(name) || !rec.containers.iter().any(|c| c.name == name) {
-            return Err(AppError::NotFound(format!("container `{name}` on that server")));
-        }
+        let found = rec.containers.iter().find(|c| c.name == name).filter(|_| mon::collect::valid_container(name));
+        let Some(found) = found else { return Err(AppError::NotFound(format!("container `{name}` on that server"))) };
+        let cmd = cmd(&found.runtime);
         let handle = mon::engine::connect(core, &cfg).await.map_err(AppError::Unavailable)?;
-        let cmd = format!("cd -- '.' && docker {args} '{name}' 2>&1");
         let res = crate::bastion::ssh::exec_out(&handle, &cmd, b"", std::time::Duration::from_secs(60), max).await;
         crate::bastion::ssh::disconnect(&handle).await;
         res.map_err(AppError::Unavailable)
@@ -310,7 +311,7 @@ impl MonitorService for Ctx {
         crate::audit::target(format!("logs of container {} on {}", r.name, r.asset));
         let tail = if r.tail == 0 { 200 } else { r.tail.min(2000) };
         const MAX: usize = 512 * 1024;
-        let (_, out) = self.docker(&r.asset, &r.name, &format!("logs --tail {tail} --timestamps"), MAX).await?;
+        let (_, out) = self.on_container(&r.asset, &r.name, |rt| crate::containers::logs_cmd(rt, &r.name, tail), MAX).await?;
         Ok(reply(pb::ContainerLogsResponse { truncated: out.len() >= MAX, text: out }, &me))
     }
 
@@ -321,7 +322,7 @@ impl MonitorService for Ctx {
         if !matches!(r.action.as_str(), "start" | "stop" | "restart") {
             return Err(AppError::BadRequest("a container can be started, stopped or restarted".into()).into());
         }
-        let (code, out) = self.docker(&r.asset, &r.name, &r.action, 16 * 1024).await?;
+        let (code, out) = self.on_container(&r.asset, &r.name, |rt| crate::containers::action_cmd(rt, &r.name, &r.action), 16 * 1024).await?;
         Ok(reply(pb::ContainerActionResponse { ok: code == 0, output: out.trim().chars().take(2000).collect() }, &me))
     }
 

@@ -132,6 +132,8 @@ message Container {
   // Bytes per second.
   optional double rx = 10;
   optional double tx = 11;
+  // docker · podman
+  string runtime = 12;
 }
 
 message AlertRule {

@@ -1,9 +1,10 @@
 <script lang="ts">
-  // A server's Docker containers: history per container (CPU, memory,
+  // A server's containers (Docker or Podman): history per container (CPU, memory,
   // network), the list, and — for admins — logs and start / stop / restart.
   import { Container as Box, ScrollText, RotateCw, Square, Play, Loader2, ArrowDown, ArrowUp } from '@lucide/svelte'
   import { monitor, errMsg } from '../lib/api'
   import { confirm } from '../lib/ui.svelte'
+  import { navigate } from '../lib/router.svelte'
   import { pct, rate, size } from '../lib/monitor'
   import type { Container, ContainerSeries } from '../gen/timika/v1/monitor_pb'
   import Chart from './Chart.svelte'
@@ -39,7 +40,7 @@
     note = null
     try {
       const r = await monitor.containerAction({ asset, name: c.name, action })
-      note = { ok: r.ok, text: r.ok ? `${c.name}: ${action === 'stop' ? 'stopped' : action === 'start' ? 'started' : 'restarted'} — the list updates with the next reading.` : `${c.name}: ${r.output || 'docker refused'}` }
+      note = { ok: r.ok, text: r.ok ? `${c.name}: ${action === 'stop' ? 'stopped' : action === 'start' ? 'started' : 'restarted'} — the list updates with the next reading.` : `${c.name}: ${r.output || 'the runtime refused'}` }
       onchanged()
     } catch (e) { note = { ok: false, text: errMsg(e) } } finally { acting = '' }
   }
@@ -74,7 +75,7 @@
       <tbody>
         {#each containers as c (c.name)}
           <tr class:cp--off={c.state !== 'running'}>
-            <td><span class="cp__name"><i class="cp__dot cp__dot--{c.state}"></i><span class="mono strong">{c.name}</span>{#if c.health}<span class="badge badge--{c.health === 'healthy' ? 'success' : c.health === 'unhealthy' ? 'danger' : 'warning'}">{c.health}</span>{/if}</span></td>
+            <td><span class="cp__name"><i class="cp__dot cp__dot--{c.state}"></i><button class="cp__link mono strong" onclick={() => navigate(`/containers/${asset}/${c.name}`)}>{c.name}</button>{#if c.health}<span class="badge badge--{c.health === 'healthy' ? 'success' : c.health === 'unhealthy' ? 'danger' : 'warning'}">{c.health}</span>{/if}</span></td>
             <td class="mono cp__img" title={c.image}>{c.image || '—'}</td>
             <td class="cp__status">{c.status || c.state}</td>
             <td class="mono cp__ports" title={c.ports}>{ports(c.ports) || '—'}</td>
@@ -114,6 +115,8 @@
   .cp__t { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
   .cp__note { margin: 0 16px 10px; }
   .cp__name { display: inline-flex; align-items: center; gap: 8px; }
+  .cp__link { border: 0; background: none; padding: 0; cursor: pointer; color: var(--text-primary); }
+  .cp__link:hover { color: var(--brand); }
   .cp__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: 0 0 auto; }
   .cp__dot--running { background: var(--success); }
   .cp__dot--restarting, .cp__dot--paused { background: var(--warning); }

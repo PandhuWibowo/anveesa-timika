@@ -110,6 +110,16 @@ pub async fn shell(handle: &Handle<Pinned>, cols: u32, rows: u32) -> Result<Chan
     Ok(ch)
 }
 
+/// Run `command` on a PTY (an interactive program, e.g. `docker exec -it`).
+pub async fn exec_pty(handle: &Handle<Pinned>, cols: u32, rows: u32, command: &str) -> Result<Channel<Msg>, String> {
+    let ch = handle.channel_open_session().await.map_err(|e| format!("could not open a session: {e}"))?;
+    ch.request_pty(false, "xterm-256color", cols, rows, 0, 0, &[])
+        .await
+        .map_err(|e| format!("PTY request failed: {e}"))?;
+    ch.exec(false, command).await.map_err(|e| format!("could not start the shell: {e}"))?;
+    Ok(ch)
+}
+
 pub async fn disconnect(handle: &Handle<Pinned>) {
     let _ = handle.disconnect(Disconnect::ByApplication, "session ended", "en").await;
 }

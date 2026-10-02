@@ -17,6 +17,7 @@ pub mod automation;
 pub mod bastion;
 pub mod client;
 pub mod cluster;
+pub mod containers;
 pub mod convert;
 pub mod kv;
 pub mod monitor;
@@ -155,6 +156,7 @@ pub fn router(st: AppState) -> axum::Router {
     use pb::automation_service_server::AutomationServiceServer;
     use pb::bastion_service_server::BastionServiceServer;
     use pb::cluster_service_server::ClusterServiceServer;
+    use pb::container_service_server::ContainerServiceServer;
     use pb::kv_service_server::KvServiceServer;
     use pb::monitor_service_server::MonitorServiceServer;
     use pb::sys_service_server::SysServiceServer;
@@ -182,6 +184,7 @@ pub fn router(st: AppState) -> axum::Router {
         .add_service(tonic_web::enable(AuditServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(AutomationServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(MonitorServiceServer::new(ctx.clone())))
+        .add_service(tonic_web::enable(ContainerServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(ClusterServiceServer::new(ctx)))
         .add_service(tonic_web::enable(health))
         .into_axum_router()

@@ -5,6 +5,7 @@ mod barrier;
 mod bastion;
 mod cli;
 mod config;
+mod containers;
 mod core;
 mod error;
 mod grpc;
@@ -52,7 +53,18 @@ async fn main() -> anyhow::Result<()> {
     let storage = match cfg.storage {
         StorageKind::Redis => {
             // A vault without storage is meaningless, so an unreachable Redis is fatal.
-            let redis = Arc::new(RedisStorage::connect(&cfg.redis).await?);
+            // A bare "timed out" says nothing: name what didn't answer and what to do.
+            // …and don't wait forever on a port that accepts connections but never replies.
+            let connecting = tokio::time::timeout(std::time::Duration::from_secs(15), RedisStorage::connect(&cfg.redis)).await;
+            let redis = connecting.unwrap_or_else(|_| Err(anyhow::anyhow!("no reply within 15 s"))).map_err(|e| {
+                anyhow::anyhow!(
+                    "can't start: Redis at {} did not answer ({e}).\n  \
+                     • Is Redis running? `make redis` starts one (needs Docker to be up).\n  \
+                     • Or run without Redis: `STORAGE=raft make dev` (data in backend/data/raft).",
+                    cfg.redis.url.split('@').last().unwrap_or(&cfg.redis.url)
+                )
+            })?;
+            let redis = Arc::new(redis);
             redis.ping().await?;
             warn_on_unsafe_redis(&redis).await;
             redis.spawn_sentinel_watch();

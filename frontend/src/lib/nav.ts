@@ -1,5 +1,5 @@
 import type { Component } from 'svelte'
-import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText, Workflow, Activity, Container } from '@lucide/svelte'
+import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText, Workflow, Activity, Container, Layers, Database } from '@lucide/svelte'
 import { liveCount } from './terminals.svelte'
 
 /** `admin`: administrators only · `vault`: needs vault read access (not the `ssh` role). */
@@ -27,7 +27,14 @@ export const navGroups: NavGroup[] = [
     label: 'Monitoring',
     items: [
       { to: '/monitoring', label: 'Systems', hint: 'CPU, memory, disk, network, containers and alerts for your servers', ico: Activity },
-      { to: '/containers', label: 'Containers', hint: 'Every Docker container on your monitored servers', ico: Container },
+    ],
+  },
+  {
+    label: 'Containers',
+    items: [
+      { to: '/containers', label: 'Containers', hint: 'Every container: shell, files, logs, start / stop', ico: Container },
+      { to: '/images', label: 'Images', hint: 'Container images on your servers (Docker or Podman): size, what uses them, clean up', ico: Layers, admin: true },
+      { to: '/volumes', label: 'Volumes', hint: 'Container volumes on your servers (Docker or Podman): size, what uses them, clean up', ico: Database, admin: true },
     ],
   },
   {

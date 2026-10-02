@@ -19,10 +19,12 @@
   import Account from './views/Account.svelte'
   import Automation from './views/AutomationRoute.svelte'
   import Monitoring from './views/MonitoringRoute.svelte'
-  import Containers from './views/Containers.svelte'
+  import Containers from './views/ContainersRoute.svelte'
+  import Images from './views/Images.svelte'
+  import Volumes from './views/Volumes.svelte'
   import { closeAll } from './lib/terminals.svelte'
 
-  const views = { '/': Overview, '/servers': Servers, '/sessions': Sessions, '/people': People, '/audit': Audit, '/account': Account, '/automation': Automation, '/monitoring': Monitoring, '/containers': Containers } as const
+  const views = { '/': Overview, '/servers': Servers, '/sessions': Sessions, '/people': People, '/audit': Audit, '/account': Account, '/automation': Automation, '/monitoring': Monitoring, '/containers': Containers, '/images': Images, '/volumes': Volumes } as const
   const onTerminal = $derived(router.path === '/terminal')
   const View = $derived(views[('/' + (router.path.split('/')[1] ?? '')) as keyof typeof views] ?? Overview)
   const title = $derived(titleFor(router.path))

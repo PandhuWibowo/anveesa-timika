@@ -228,6 +228,9 @@ pub struct LatestRec {
     pub disks: Vec<Disk>,
     #[serde(default)]
     pub containers: Vec<Container>,
+    /// Container runtimes found on the server (docker, podman).
+    #[serde(default)]
+    pub runtimes: Vec<String>,
     #[serde(default)]
     pub failed_units: Vec<String>,
     /// CPU % of the last readings.
@@ -265,7 +268,7 @@ pub struct Counters {
 impl LatestRec {
     pub fn pending() -> Self {
         let now = Utc::now();
-        Self { status: "pending".into(), since: now, error: None, time: now, numbers: None, disks: vec![], containers: vec![], failed_units: vec![], spark: vec![], firing: vec![], down_notified: false, misses: 0, last_error: None, last_error_at: None, counters: None }
+        Self { status: "pending".into(), since: now, error: None, time: now, numbers: None, disks: vec![], containers: vec![], runtimes: vec![], failed_units: vec![], spark: vec![], firing: vec![], down_notified: false, misses: 0, last_error: None, last_error_at: None, counters: None }
     }
 }
 
@@ -298,6 +301,21 @@ pub async fn systems(core: &Core) -> AppResult<Vec<SystemCfg>> {
         }
     }
     Ok(out)
+}
+
+/// The runtime a container belongs to, from the last reading (docker when unknown).
+pub async fn runtime_of(core: &Core, asset: &str, container: &str) -> String {
+    let rec: Option<LatestRec> = core.get_json(&latest_path(asset)).await.ok().flatten();
+    rec.and_then(|r| r.containers.into_iter().find(|c| c.name == container).map(|c| c.runtime)).unwrap_or_else(|| "docker".into())
+}
+
+/// The runtimes on a server, from the last reading (docker when unknown).
+pub async fn runtimes(core: &Core, asset: &str) -> Vec<String> {
+    let rec: Option<LatestRec> = core.get_json(&latest_path(asset)).await.ok().flatten();
+    match rec.map(|r| r.runtimes).filter(|r| !r.is_empty()) {
+        Some(r) => r,
+        None => vec!["docker".into()],
+    }
 }
 
 /// Stop monitoring: the system and all of its history.

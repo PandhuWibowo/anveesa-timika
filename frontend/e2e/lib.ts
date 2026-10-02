@@ -18,6 +18,7 @@ import { ClusterService } from '../src/gen/timika/v1/cluster_pb'
 import { AuditService } from '../src/gen/timika/v1/audit_pb'
 import { AutomationService } from '../src/gen/timika/v1/automation_pb'
 import { MonitorService } from '../src/gen/timika/v1/monitor_pb'
+import { ContainerService } from '../src/gen/timika/v1/containers_pb'
 import { Health } from './gen/grpc/health/v1/health_pb'
 
 export { Code, ConnectError }
@@ -212,6 +213,7 @@ function clientsFor(t: Transport) {
     audit: createClient(AuditService, t),
     automation: createClient(AutomationService, t),
     monitor: createClient(MonitorService, t),
+    containers: createClient(ContainerService, t),
     health: createClient(Health, t),
   }
 }

@@ -38,11 +38,18 @@ for f in /sys/class/thermal/thermal_zone*/temp /sys/class/hwmon/hwmon*/temp*_inp
 done
 [ -n "$t" ] && echo "temp=$t"
 df -kP 2>/dev/null | awk 'NR > 1 { print "disk=" $1 "|" $6 "|" $2 "|" $3 }'
-# A stuck docker daemon must not make the whole reading time out.
+# Containers: docker and / or podman (the same questions to each). A stuck
+# daemon must not make the whole reading time out.
 T=; command -v timeout >/dev/null 2>&1 && T="timeout 8"
-if command -v docker >/dev/null 2>&1 && $T docker ps -a --format 'ctr={{.Names}}|{{.State}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null; then
-  ($T docker stats --no-stream --format 'cst={{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null) || true
-fi
+for RT in docker podman; do
+  command -v $RT >/dev/null 2>&1 || continue
+  # `docker` may be podman's compatibility shim: count it once, as podman.
+  if [ $RT = docker ] && docker --version 2>/dev/null | grep -qi podman; then continue; fi
+  out=$($T $RT ps -a --format 'ctr={{.Names}}|{{.State}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null) || continue
+  echo "rt=$RT"
+  [ -n "$out" ] && printf '%s\n' "$out"
+  ($T $RT stats --no-stream --format 'cst={{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null) || true
+done
 if command -v systemctl >/dev/null 2>&1; then
   $T systemctl --failed --no-legend --plain 2>/dev/null | awk '$1 != "" { print "unit=" $1 }'
 fi
@@ -62,6 +69,9 @@ pub struct Container {
     pub name: String,
     /// running · exited · paused · restarting · created · dead
     pub state: String,
+    /// docker · podman
+    #[serde(default = "docker")]
+    pub runtime: String,
     #[serde(default)]
     pub image: String,
     /// "Up 3 hours (healthy)", "Exited (0) 2 days ago"
@@ -88,6 +98,10 @@ pub struct Container {
     pub tx: Option<f64>,
 }
 
+fn docker() -> String {
+    "docker".into()
+}
+
 /// One reading, counters still absolute.
 #[derive(Clone, Default, Debug)]
 pub struct Raw {
@@ -111,6 +125,8 @@ pub struct Raw {
     pub temp: Option<f64>,
     pub disks: Vec<Disk>,
     pub containers: Vec<Container>,
+    /// The container runtimes that answered (docker, podman).
+    pub runtimes: Vec<String>,
     pub failed_units: Vec<String>,
 }
 
@@ -162,6 +178,7 @@ pub fn parse(out: &str) -> Result<Raw, String> {
     let mut r = Raw::default();
     let (mut mem_free, mut buffers, mut cached, mut mem_avail, mut swap_free) = (0u64, 0u64, 0u64, None, 0u64);
     let mut complete = false;
+    let mut runtime = docker();
     for line in out.lines() {
         let Some((k, v)) = line.split_once('=') else { continue };
         let v = v.trim();
@@ -219,14 +236,24 @@ pub fn parse(out: &str) -> Result<Raw, String> {
                     }
                 }
             }
+            "rt" => {
+                if matches!(v, "docker" | "podman") {
+                    runtime = v.to_string();
+                    if !r.runtimes.contains(&runtime) {
+                        r.runtimes.push(runtime.clone());
+                    }
+                }
+            }
             "ctr" => {
                 let f: Vec<&str> = v.splitn(5, '|').collect();
-                if f.len() >= 2 && valid_container(f[0]) && r.containers.len() < 200 {
+                if f.len() >= 2 && valid_container(f[0]) && r.containers.len() < 200 && !r.containers.iter().any(|c| c.name == f[0]) {
                     let status = f.get(3).copied().unwrap_or("").to_string();
                     let health = ["unhealthy", "healthy", "health: starting"].iter().find(|h| status.contains(&format!("({h})"))).map(|h| h.trim_start_matches("health: ").to_string()).unwrap_or_default();
                     r.containers.push(Container {
                         name: f[0].into(),
-                        state: f[1].into(),
+                        // podman says "Up" / "Exited" in some versions.
+                        state: f[1].to_lowercase().replace("up", "running"),
+                        runtime: runtime.clone(),
                         image: f.get(2).copied().unwrap_or("").chars().take(200).collect(),
                         status: status.chars().take(120).collect(),
                         ports: f.get(4).copied().unwrap_or("").chars().take(300).collect(),
@@ -238,7 +265,7 @@ pub fn parse(out: &str) -> Result<Raw, String> {
             "cst" => {
                 let f: Vec<&str> = v.split('|').collect();
                 if f.len() >= 3 {
-                    if let Some(c) = r.containers.iter_mut().find(|c| c.name == f[0]) {
+                    if let Some(c) = r.containers.iter_mut().find(|c| c.name == f[0] && c.runtime == runtime) {
                         c.cpu = f[1].trim_end_matches('%').parse().ok();
                         c.mem = mem_bytes(f[2]);
                         c.mem_limit = f[2].split('/').nth(1).map(size_bytes).unwrap_or(0);
@@ -326,7 +353,7 @@ stat=cpu  2000 100 900 16000 400 0 50 50 0 0\nload=0.42 0.30 0.25\n\
 mem.MemTotal=2000000\nmem.MemFree=200000\nmem.MemAvailable=1500000\nmem.Buffers=50000\nmem.Cached=900000\nmem.SwapTotal=1000000\nmem.SwapFree=750000\n\
 net=6000000 3000000\nio=20000 40000\ntemp=54000\n\
 disk=/dev/vda1|/|41152736|20576368\ndisk=tmpfs|/run|200000|1000\ndisk=/dev/vdb|/data|103081248|10308124\ndisk=overlay|/var/lib/docker/overlay2/x/merged|41152736|20576368\ndisk=/dev/loop3|/snap/core/1|100|100\n\
-ctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080->80/tcp\nctr=old-job|exited\nctr=bad name; rm|running\ncst=web|12.50%|128MiB / 1.9GiB|1.5MB / 300kB\nunit=nginx.service\nend=1\n";
+rt=docker\nctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080->80/tcp\nctr=old-job|exited\nctr=bad name; rm|running\ncst=web|12.50%|128MiB / 1.9GiB|1.5MB / 300kB\nrt=podman\nctr=cache|running|docker.io/library/redis:7|Up 2 hours|\nctr=web|running|dup|Up|\ncst=cache|0.50%|10.5MB / 2GB|-- / --\nunit=nginx.service\nend=1\n";
 
     #[test]
     fn parses_a_reading() {
@@ -341,12 +368,15 @@ ctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080-
         assert_eq!(r.temp, Some(54.0));
         assert_eq!(r.io, Some((20000 * 512, 40000 * 512)));
         assert_eq!(r.disks.iter().map(|d| d.mount.as_str()).collect::<Vec<_>>(), ["/", "/data"], "pseudo file systems skipped");
-        assert_eq!(r.containers.len(), 2);
-        assert_eq!((r.containers[0].name.as_str(), r.containers[0].cpu, r.containers[0].mem), ("web", Some(12.5), 128 * 1024 * 1024));
-        let w = &r.containers[0];
+        assert_eq!(r.containers.iter().map(|c| (c.name.as_str(), c.runtime.as_str())).collect::<Vec<_>>(), [("cache", "podman"), ("web", "docker"), ("old-job", "docker")], "both runtimes; a name is listed once");
+        assert_eq!(r.runtimes, ["docker", "podman"]);
+        let cache = &r.containers[0];
+        assert_eq!((cache.image.as_str(), cache.cpu, cache.mem, cache.net), ("docker.io/library/redis:7", Some(0.5), 10_500_000, Some((0, 0))));
+        assert_eq!((r.containers[1].name.as_str(), r.containers[1].cpu, r.containers[1].mem), ("web", Some(12.5), 128 * 1024 * 1024));
+        let w = &r.containers[1];
         assert_eq!((w.image.as_str(), w.status.as_str(), w.health.as_str()), ("nginx:1.27", "Up 3 hours (healthy)", "healthy"));
         assert_eq!((w.ports.as_str(), w.net, w.mem_limit), ("0.0.0.0:8080->80/tcp, [::]:8080->80/tcp", Some((1_500_000, 300_000)), (1.9 * 1024.0 * 1024.0 * 1024.0) as u64));
-        assert_eq!((r.containers[1].name.as_str(), r.containers[1].image.as_str()), ("old-job", ""), "the short form still parses; odd names are dropped");
+        assert_eq!((r.containers[2].name.as_str(), r.containers[2].image.as_str()), ("old-job", ""), "the short form still parses; odd names are dropped");
         assert_eq!(r.failed_units, ["nginx.service"]);
     }
 
@@ -360,15 +390,16 @@ ctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080-
         assert_eq!((r.rx, r.tx), (Some(100000.0), Some(50000.0)));
         assert_eq!((r.io_read, r.io_write), (Some(12000.0 * 512.0 / 60.0), Some(0.0)));
         assert_eq!(rates(None, &b), Rates::default());
+        let w = b.containers.iter().position(|c| c.name == "web").unwrap();
         let mut older = a.clone();
-        older.containers[0].net = Some((300_000, 0));
+        older.containers[w].net = Some((300_000, 0));
         let mut cur = b.clone();
         container_rates(Some(&older), &mut cur);
-        assert_eq!((cur.containers[0].rx, cur.containers[0].tx), (Some(20_000.0), Some(5_000.0)), "1.2 MB in, 300 kB out over 60 s");
-        older.containers[0].net = Some((9_000_000, 0));
+        assert_eq!((cur.containers[w].rx, cur.containers[w].tx), (Some(20_000.0), Some(5_000.0)), "1.2 MB in, 300 kB out over 60 s");
+        older.containers[w].net = Some((9_000_000, 0));
         let mut cur = b.clone();
         container_rates(Some(&older), &mut cur);
-        assert_eq!(cur.containers[0].rx, None, "counter went down: the container restarted");
+        assert_eq!(cur.containers[w].rx, None, "counter went down: the container restarted");
         assert_eq!(rates(Some(&b), &a), Rates::default(), "clock went back / reboot");
     }
 

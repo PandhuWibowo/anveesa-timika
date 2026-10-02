@@ -22,7 +22,7 @@ first numbers appear within the interval. Rates such as CPU % and network need
 a second reading.
 
 Each server is read as its **first account** (any account works; no root
-needed). Docker numbers need that account to be allowed to run `docker`.
+needed). Container numbers need that account to be allowed to run `docker` or `podman`.
 
 ## What is read
 
@@ -37,10 +37,10 @@ One read-only POSIX `sh` script per reading (`monitor/collect.rs`), from
 | Disk I/O, network | `/sys/block/*/stat`, `/proc/net/dev` (all interfaces but `lo`), as bytes per second |
 | Load, uptime, OS, kernel, CPU model | `/proc/loadavg`, `/proc/uptime`, `/etc/os-release`, `/proc/cpuinfo` |
 | Temperature | the hottest of `/sys/class/thermal` and `hwmon` sensors |
-| Containers | `docker ps -a` and `docker stats --no-stream` (state, CPU %, memory) |
+| Containers | `docker` / `podman` `ps -a` and `stats --no-stream` (state, CPU %, memory, network) |
 | Failed services | `systemctl --failed` |
 
-Docker and systemd calls are limited to 8 s, so a stuck daemon doesn't make the
+Container-runtime and systemd calls are limited to 8 s, so a stuck daemon doesn't make the
 server look down.
 
 **Missed readings and "down":**
@@ -60,10 +60,10 @@ server look down.
   didn't answer. The last counters are stored, so a restart of timika costs
   one point, also for the rates.
 
-## Containers (Docker)
+## Containers (Docker and Podman)
 
-When the monitoring account can run `docker`, each reading also takes
-`docker ps -a` and `docker stats --no-stream`:
+When the monitoring account can run `docker` or `podman`, each reading also
+takes `ps -a` and `stats --no-stream` from whichever answer (both, if both do):
 
 - **Per container:** state, image, status ("Up 3 hours (healthy)"), health,
   published ports, CPU %, memory (used / limit), network in / out per second.

@@ -77,6 +77,7 @@ pub async fn run(
     cols: u32,
     rows: u32,
     ip: Option<String>,
+    container: Option<String>,
 ) {
     let (mut tx, mut rx) = socket.split();
     let send_json = |v: Value| Message::Text(v.to_string());
@@ -88,7 +89,11 @@ pub async fn run(
         asset: asset.id.clone(),
         asset_name: asset.name.clone(),
         host: format!("{}:{}", asset.host, asset.port),
-        account: account.clone(),
+        // Shown everywhere a session is listed: "root → test-nginx".
+        account: match &container {
+            Some(c) => format!("{account} → {c}"),
+            None => account.clone(),
+        },
         client_ip: ip,
         instance: st.core.identity.id.clone(),
         started_at: now,
@@ -125,7 +130,14 @@ pub async fn run(
     if connected.first_seen && !connected.host_key.is_empty() {
         let _ = super::pin_host_key(&st.core, &asset.id, &connected.host_key).await;
     }
-    let channel = match ssh::shell(&connected.handle, cols, rows).await {
+    let opened = match &container {
+        Some(c) => {
+            let rt = crate::monitor::runtime_of(&st.core, &asset.id, c).await;
+            ssh::exec_pty(&connected.handle, cols, rows, &crate::containers::shell_cmd(&rt, c)).await
+        }
+        None => ssh::shell(&connected.handle, cols, rows).await,
+    };
+    let channel = match opened {
         Ok(c) => c,
         Err(msg) => {
             let _ = tx.send(send_json(json!({ "type": "error", "message": msg }))).await;

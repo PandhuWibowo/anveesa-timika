@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Every Docker container on every monitored server.
+  // Every container (Docker or Podman) on every monitored server.
   import { Container as Box, Search, Loader2, ScrollText, ArrowDown, ArrowUp } from '@lucide/svelte'
   import { createQuery } from '@tanstack/svelte-query'
   import { keys } from '../lib/query'
@@ -31,9 +31,9 @@
     <div class="page-stack">
       <section class="page-hero">
         <div class="page-hero__content">
-          <div class="page-kicker">Monitoring</div>
+          <div class="page-kicker">Containers</div>
           <h1 class="page-title">Containers</h1>
-          <p class="page-subtitle">Every Docker container on your monitored servers. Open a server for history charts{canManage ? ', logs and start / stop / restart' : ''}.</p>
+          <p class="page-subtitle">Every container on your monitored servers, Docker or Podman.{canManage ? ' Open one for a shell, its files, logs and start / stop / restart.' : ''}</p>
         </div>
         <div class="page-metrics">
           <div class="page-metric"><span class="page-metric__value">{rows.length}</span><span class="page-metric__label">Containers</span></div>
@@ -62,9 +62,9 @@
               <tbody>
                 {#each shown as r (r.asset + '/' + r.container!.name)}
                   {@const c = r.container!}
-                  <tr class="ct-row" class:ct--off={c.state !== 'running'} onclick={() => navigate(`/monitoring/${r.asset}`)}>
+                  <tr class="ct-row" class:ct--off={c.state !== 'running'} onclick={() => navigate(`/containers/${r.asset}/${c.name}`)}>
                     <td><span class="ct-name"><i class="ct-dot ct-dot--{c.state}"></i><span class="mono strong">{c.name}</span>{#if c.health}<span class="badge badge--{c.health === 'healthy' ? 'success' : c.health === 'unhealthy' ? 'danger' : 'warning'}">{c.health}</span>{/if}</span></td>
-                    <td>{r.system}</td>
+                    <td>{r.system} <span class="badge badge--default ct-rt">{c.runtime}</span></td>
                     <td class="mono ct-img" title={c.image}>{c.image || '—'}</td>
                     <td class="ct-status">{c.status || c.state}</td>
                     <td class="mono">{c.cpu !== undefined ? pct(c.cpu) : '—'}</td>
@@ -75,7 +75,7 @@
                 {:else}
                   <tr><td colspan={canManage ? 8 : 7}><div class="empty-state ct-empty">
                     <Box size={26} />
-                    {#if rows.length}Nothing matches.{:else}No containers found. Monitored servers with Docker show theirs here — the monitoring account must be allowed to run <code>docker</code>.{/if}
+                    {#if rows.length}Nothing matches.{:else}No containers found. Monitored servers running Docker or Podman show theirs here — the monitoring account must be allowed to run <code>docker</code> / <code>podman</code>.{/if}
                   </div></td></tr>
                 {/each}
               </tbody>
@@ -110,5 +110,6 @@
   .ct-net { font-size: 11.5px; white-space: nowrap; }
   .ct-net :global(svg) { vertical-align: -2px; }
   .ct-act { text-align: right; }
+  .ct-rt { margin-left: 4px; font-size: 10px; }
   .ct-empty { gap: 8px; padding: 30px 20px; }
 </style>

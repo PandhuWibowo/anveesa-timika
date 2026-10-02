@@ -9,8 +9,9 @@ The API is gRPC, defined in [`proto/timika/v1/*.proto`](../proto/timika/v1) (pac
 | **gRPC-Web** (HTTP/1.1) | the browser UI (Connect `createGrpcWebTransport`) | same paths |
 | `grpc.health.v1.Health` | gRPC-aware probes / LBs (`SERVING` only while unsealed) | `/grpc.health.v1.Health/Check` |
 | plain HTTP | load balancers and k8s probes that can't speak gRPC | `GET /v1/sys/health` |
-| WebSocket | the web terminal (browsers can't do bidirectional gRPC streams) | `GET /v1/bastion/connect` |
+| WebSocket | the web terminal (browsers can't do bidirectional gRPC streams); `container=<name>` opens a shell inside a container (admins) | `GET /v1/bastion/connect` |
 | HTTP webhook | push webhooks from GitHub / GitLab / Gitea (repository webhook secret) | `POST /v1/automation/hooks/<repo>` |
+| HTTP streams | files in a container | `PUT /v1/containers/upload?asset&container&path` (token header) · `GET /v1/containers/download?t=<link>` |
 | HTTP trigger | CI starts a run (`Authorization: Bearer tmkci.…`; `wait` → 200 / 409) | `POST /v1/automation/trigger/<repo>` |
 | HTTP streams | file transfer (gRPC-Web can't stream request bodies) | `PUT /v1/bastion/files/upload?asset&account&path` (token header) · `GET /v1/bastion/files/download?t=<link from DownloadLink>` |
 
@@ -55,6 +56,7 @@ Send the token as call metadata: `x-timika-token: tmk.…` (or `authorization: B
 | `ClusterService` | Configuration · RemovePeer · Snapshot (server stream) · JoinChallenge · JoinAnswer |
 | `AutomationService` | ListRepos · GetRepo (+ recent commits) · NewDeployKey · CreateRepo (clones now; `branch` empty = default branch) · UpdateRepo (empty token / key / secret value = keep) · DeleteRepo · SyncRepo (git pull) · CheckRunner (tools on the runner) · ListRuns · GetRun · StartRun (`plan` · `apply` with `plan_run` · `check` · `run` · `preview` · `up`) · CancelRun · WatchRun (server stream: output from the start, then live) · ApproveRun / RejectRun (another admin) · ListRepoFiles / ReadRepoFile (browse the clone at a commit; admin) · ListSchedules · SaveSchedule · DeleteSchedule · RunScheduleNow · SetRepoPolicy (approvals) · SaveNotifiers · TestNotifier · RotateTriggerToken. StartRun takes `options` (limit, tags, skip_tags, extra_vars, verbose, servers, destroy, targets, replace, workspace, refresh) — [AUTOMATION.md](AUTOMATION.md) |
 | `MonitorService` | ListSystems (your servers' latest numbers; admins also get the unmonitored ones) · GetSystem (`range`: 1h · 6h · 24h · 7d · 30d · 90d → times + series) · SetMonitoring · SetSystemAlerts · ListContainers · ContainerLogs / ContainerAction (start · stop · restart; admin) · GetSettings / SaveSettings (default rules, notifiers) · TestNotifier — [MONITORING.md](MONITORING.md) |
+| `ContainerService` (admin; Docker or Podman) | InspectContainer · ListFiles · MakeDir · DeleteFiles · DownloadLink (a file, or a folder as .tar) · ListImages · RemoveImage · PruneImages · ListVolumes · RemoveVolume · PruneVolumes — [CONTAINERS.md](CONTAINERS.md) |
 | `AuditService` | ListEvents (newest first; filter by user, text, category incl. `files`, outcome, `server`; routine reads hidden unless `include_routine`) · Verify (hash chain) — admin |
 
 Times are RFC 3339 strings. Free-form reports (`Storage`, `Audit`, `SealResponse.report`)

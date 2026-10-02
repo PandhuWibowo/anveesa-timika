@@ -17,6 +17,8 @@ export type Tab = {
   assetId: string
   assetName: string
   account: string
+  /** A shell inside this container instead of on the server. */
+  container?: string
   status: TabStatus
   message: string
   sessionId: string | null
@@ -60,9 +62,9 @@ const THEME = {
 const tabOf = (id: string) => terminals.tabs.find((t) => t.id === id)
 
 /** Open a terminal to `account@asset` and show it. */
-export function openTerminal(assetId: string, assetName: string, account: string) {
+export function openTerminal(assetId: string, assetName: string, account: string, container?: string) {
   const id = `t${++seq}`
-  terminals.tabs.push({ id, assetId, assetName, account, status: 'connecting', message: 'Connecting…', sessionId: null, connectMs: null })
+  terminals.tabs.push({ id, assetId, assetName, account, container, status: 'connecting', message: 'Connecting…', sessionId: null, connectMs: null })
   terminals.active = id
   ready.set(id, loadXterm().then((x) => {
     if (!tabOf(id)) return null // closed while loading
@@ -124,6 +126,7 @@ function connect(id: string) {
   tab.message = 'Connecting…'
   tab.sessionId = null
   const q = new URLSearchParams({ asset: tab.assetId, account: tab.account, cols: String(rt.term.cols), rows: String(rt.term.rows) })
+  if (tab.container) q.set('container', tab.container)
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/v1/bastion/connect?${q}`
   // Browsers can't set headers on a WebSocket: the token rides in the subprotocol list.
   const ws = new WebSocket(url, ['timika', session.token])

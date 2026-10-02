@@ -76,7 +76,7 @@
              onclick={() => focusTab(t.id)} onkeydown={(e) => e.key === 'Enter' && focusTab(t.id)}
              onauxclick={(e) => { if (e.button === 1) closeTab(t.id) }}>
           <span class="term-dot term-dot--{dot(t)}"></span>
-          <span class="mono term-tab__label">{t.account}@{t.assetName}</span>
+          <span class="mono term-tab__label">{t.container ? `${t.container} · ${t.assetName}` : `${t.account}@${t.assetName}`}</span>
           <button class="term-tab__close" title="Close (ends the session)" onclick={(e) => { e.stopPropagation(); closeTab(t.id) }}><X size={12} /></button>
         </div>
       {/each}

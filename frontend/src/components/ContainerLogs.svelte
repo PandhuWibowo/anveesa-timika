@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The last lines of a container's output (docker logs), refreshed on demand or live.
+  // The last lines of a container's output (docker / podman logs), refreshed on demand or live.
   import { onMount, tick } from 'svelte'
   import { fade, scale } from 'svelte/transition'
   import { X, Loader2, RefreshCw, Download } from '@lucide/svelte'

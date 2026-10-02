@@ -23,6 +23,9 @@ pub struct ConnectQuery {
     cols: u32,
     #[serde(default = "default_rows")]
     rows: u32,
+    /// Open a shell inside this container (admins) instead of on the server.
+    #[serde(default)]
+    container: Option<String>,
 }
 fn default_cols() -> u32 { 120 }
 fn default_rows() -> u32 { 32 }
@@ -36,7 +39,10 @@ pub async fn connect(
     headers: HeaderMap,
     Query(q): Query<ConnectQuery>,
 ) -> AppResult<Response> {
-    crate::audit::target(format!("{}@{}", q.account, q.asset));
+    crate::audit::target(match &q.container {
+        Some(c) => format!("{}@{} → container {c}", q.account, q.asset),
+        None => format!("{}@{}", q.account, q.asset),
+    });
     let token = crate::audit::ws_token(&headers).ok_or_else(|| AppError::Auth("missing token".into()))?;
     let (me, _) = crate::token::resolve(&st, &token).await?;
     if me.is_restricted() {
@@ -45,6 +51,13 @@ pub async fn connect(
     let asset = bastion::get_asset(&st.core, &q.asset).await?;
     if !bastion::allowed_accounts(&st.core, &me, &asset).await?.contains(&q.account) {
         return Err(AppError::Forbidden(format!("you don't have access to {}@{}", q.account, asset.name)));
+    }
+    let container = q.container.clone().filter(|c| !c.is_empty());
+    if let Some(c) = &container {
+        if !me.is_admin() {
+            return Err(AppError::Forbidden("only administrators can open a shell in a container".into()));
+        }
+        crate::containers::check_name(c)?;
     }
     let secret: Secret = st
         .core
@@ -56,7 +69,7 @@ pub async fn connect(
     let entry = me.clone();
     let mut resp = ws
         .protocols(["timika"])
-        .on_upgrade(move |socket| bastion::session::run(st, socket, me, asset, q.account, secret, cols, rows, ip));
+        .on_upgrade(move |socket| bastion::session::run(st, socket, me, asset, q.account, secret, cols, rows, ip, container));
     resp.extensions_mut().insert(entry);
     Ok(resp)
 }
