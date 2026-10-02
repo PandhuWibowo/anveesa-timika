@@ -69,7 +69,7 @@ make redis-sentinel-up / redis-cluster-up   # Redis HA rigs with timika inside
 make stop         # free the dev ports
 make gen          # regenerate frontend/src/gen from proto/ (after editing a .proto)
 make test         # gen + cargo test + svelte-check
-make e2e          # 297 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
+make e2e          # 306 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
 make helm-lint    # lint deploy/helm/timika
 ```
 
@@ -114,15 +114,19 @@ backend/src/
                   `sh run.sh` over SSH, output/plan/state back into the vault, server inventory),
                   schedule.rs + cron.rs (cron schedules, claimed once cluster-wide), notify.rs
                   (Slack/Teams/Discord/Telegram/webhook)
+  monitor/        agentless monitoring (docs/MONITORING.md): collect.rs (the sh script run over
+                  SSH + its parser, rates), engine.rs (one collecting instance, history
+                  roll-ups, alert rules, notifications), mod.rs (storage, ranges)
   kv.rs           KV v2 engine: versions, CAS, soft delete, destroy, folder listing
   routes/         plain HTTP only: /v1/sys/health, the /v1/bastion/connect WebSocket,
                   /v1/bastion/files/upload (PUT) and /download (GET, signed link),
                   /v1/automation/hooks/<repo> (push webhooks, HMAC / token), /v1/automation/trigger/<repo> (CI)
-proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation)
+proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation, monitor)
 frontend/src/
   App.svelte      shell (sidebar/topbar/statusbar) or Gate when sealed/uninit/no token
   gen/            generated from proto (`bun run gen`: buf + protoc-gen-es) — don't edit
-  lib/            api.ts (Connect gRPC-Web clients, errMsg/isNetworkError), session/router/ui
+  lib/            api.ts (Connect gRPC-Web clients, errMsg/isNetworkError), query.ts (TanStack
+                  Query client + keys; memory-only cache), session/router/ui
                   (.svelte.ts rune stores), nav.ts, roles.ts, password.ts, auditText.ts, types.ts
   components/     CommandPalette (⌘K, incl. "connect to …"), ConfirmModal, ServerDrawer +
                   AccountCard (accounts + provisioning), UserDrawer, SessionsTable, Replay,
@@ -131,7 +135,8 @@ frontend/src/
                   Files · Sessions · Activity · Access), Terminals (always mounted — sessions
                   survive navigation; lib/terminals.svelte.ts), Sessions, People, Audit, Account,
                   Automation / AutomationRepo / RunView (+ components RepoDrawer, RunsTable, RunDialog,
-                  RunOptionsForm, ScheduleDialog, NotifySettings)
+                  RunOptionsForm, ScheduleDialog, NotifySettings), Monitoring / MonitorSystem
+                  (+ Chart, RulesEditor, MonitorSettings, ContainerPanel, ContainerLogs), Containers
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)
@@ -167,6 +172,11 @@ scripts/raft-dev.sh   local 3-node cluster
   `style.css`; don't invent new component CSS. Svelte 5 runes only.
 - New behaviour gets an end-to-end scenario in `frontend/e2e/scenarios/` (one file
   per area; `scenario(cat, title, fn)`), and `make e2e` must stay green.
+- Frontend data: lists and detail reads go through **TanStack Query** (`lib/query.ts`:
+  `createQuery(() => ({ queryKey: keys.…, queryFn, refetchInterval }))`), not hand-rolled
+  `setInterval` + `$state`. After a change, `refetch()` / `queryClient.invalidateQueries`.
+  The cache is memory-only and cleared on sign-in, sign-out and seal — never persist it.
+  Streams (terminal, run output) stay as they are.
 - New page: add `views/X.svelte`, register it in `App.svelte`'s `views` map, and add
   a nav entry in `lib/nav.ts` (the command palette picks it up automatically).
 

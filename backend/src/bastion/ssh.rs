@@ -122,6 +122,11 @@ pub async fn exec(handle: &Handle<Pinned>, command: &str, stdin: &[u8]) -> Resul
 
 /// `exec` with a custom time limit (archiving big folders takes a while).
 pub async fn exec_for(handle: &Handle<Pinned>, command: &str, stdin: &[u8], limit: Duration) -> Result<(u32, String), String> {
+    exec_out(handle, command, stdin, limit, 16 * 1024).await
+}
+
+/// `exec` keeping up to `max` bytes of output.
+pub async fn exec_out(handle: &Handle<Pinned>, command: &str, stdin: &[u8], limit: Duration, max: usize) -> Result<(u32, String), String> {
     let mut ch = handle.channel_open_session().await.map_err(|e| format!("could not open a session: {e}"))?;
     ch.exec(true, command).await.map_err(|e| format!("exec failed: {e}"))?;
     if !stdin.is_empty() {
@@ -134,7 +139,7 @@ pub async fn exec_for(handle: &Handle<Pinned>, command: &str, stdin: &[u8], limi
         while let Some(msg) = ch.wait().await {
             match msg {
                 russh::ChannelMsg::Data { data } | russh::ChannelMsg::ExtendedData { data, .. } => {
-                    if out.len() < 16 * 1024 {
+                    if out.len() < max {
                         out.extend_from_slice(&data);
                     }
                 }

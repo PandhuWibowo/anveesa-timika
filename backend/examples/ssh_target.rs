@@ -8,7 +8,8 @@
 //! Shell: echoes keystrokes; on Enter runs one of
 //!   `whoami` → the user · `size` → "<cols>x<rows>" · `big` → 200 KiB of output ·
 //!   `exit` → closes the channel · anything else → "ok: <line>".
-//! Exec: understands timika's account provisioning (`sh -s`, `sudo -n true`,
+//! Exec: answers timika's monitoring script from `<files_root>/.timika-metrics`;
+//! understands timika's account provisioning (`sh -s`, `sudo -n true`,
 //! `sudo -n sh -s`, `sudo -S -p '' sh -s`): the script's U/P become a user
 //! that can then sign in with that password.
 
@@ -157,6 +158,11 @@ impl russh::server::Handler for Target {
         let Some(cmd) = self.exec.take() else { return Ok(()) };
         let input = String::from_utf8_lossy(&std::mem::take(&mut self.stdin)).into_owned();
         let status = if cmd == "sudo -n true" {
+            0
+        } else if cmd == "sh -s" && input.starts_with("# timika-metrics") {
+            // Monitoring: answer with what the test put in `.timika-metrics`.
+            let out = std::fs::read_to_string(self.files_root.join(".timika-metrics")).unwrap_or_else(|_| "unsupported=TestTarget\n".into());
+            session.data(channel, out.into_bytes())?;
             0
         } else if cmd.ends_with("sh -s") {
             // `sudo -S` reads the password line first.

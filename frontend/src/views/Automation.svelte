@@ -1,9 +1,10 @@
 <script lang="ts">
   // Infrastructure: Git repositories with Terraform / OpenTofu, Ansible and
   // Pulumi projects, and every run across them.
-  import { onMount } from 'svelte'
   import { Plus, Loader2, GitBranch, RefreshCw, Workflow, Webhook, CircleAlert } from '@lucide/svelte'
   import { automation, errMsg } from '../lib/api'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { keys, queryClient } from '../lib/query'
   import { isAdmin } from '../lib/session.svelte'
   import { navigate } from '../lib/router.svelte'
   import { KINDS, repoWeb, ago, short, isActive } from '../lib/automation'
@@ -11,35 +12,23 @@
   import RepoDrawer from '../components/RepoDrawer.svelte'
   import RunsTable from '../components/RunsTable.svelte'
 
-  let repos = $state<Repo[]>([])
-  let runs = $state<Run[]>([])
-  let loading = $state(true)
-  let error = $state('')
+  const reposQ = createQuery(() => ({ queryKey: keys.repos, queryFn: () => automation.listRepos({}), refetchInterval: 5000 }))
+  const runsQ = createQuery(() => ({ queryKey: keys.runs(), queryFn: () => automation.listRuns({ limit: 30 }), refetchInterval: 5000 }))
+  const repos = $derived<Repo[]>(reposQ.data?.repos ?? [])
+  const runs = $derived<Run[]>(runsQ.data?.runs ?? [])
+  const loading = $derived(reposQ.isPending)
+  let actionError = $state('')
+  const error = $derived(actionError || (reposQ.error && !reposQ.data ? errMsg(reposQ.error) : ''))
   let drawer = $state(false)
   let pulling = $state<Record<string, boolean>>({})
   const canManage = isAdmin()
 
-  async function load() {
-    try {
-      const [r, x] = await Promise.all([automation.listRepos({}), automation.listRuns({ limit: 30 })])
-      repos = r.repos
-      runs = x.runs
-      error = ''
-    } catch (e) { error = errMsg(e) } finally { loading = false }
-  }
-
-  onMount(() => {
-    load()
-    const t = setInterval(() => { if (!document.hidden) load() }, 5000)
-    return () => clearInterval(t)
-  })
-
   async function pull(r: Repo) {
     pulling[r.id] = true
     try {
-      const n = await automation.syncRepo({ id: r.id })
-      repos = repos.map((x) => (x.id === n.id ? n : x))
-    } catch (e) { error = errMsg(e) } finally { pulling[r.id] = false }
+      await automation.syncRepo({ id: r.id })
+      actionError = ''
+    } catch (e) { actionError = errMsg(e) } finally { pulling[r.id] = false; reposQ.refetch() }
   }
 
   const counts = (r: Repo) => Object.entries(r.projects.reduce<Record<string, number>>((m, p) => ((m[p.kind] = (m[p.kind] ?? 0) + 1), m), {}))

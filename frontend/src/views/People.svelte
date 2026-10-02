@@ -1,33 +1,28 @@
 <script lang="ts">
   // People: who can sign in, their role, which servers they can reach.
-  import { onMount } from 'svelte'
   import { UserPlus, Search, Loader2, ScrollText } from '@lucide/svelte'
   import { authApi, bastion, errMsg } from '../lib/api'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { keys } from '../lib/query'
   import { ROLES, roleOf, roleLabel, roleBadge } from '../lib/roles'
   import { navigate } from '../lib/router.svelte'
   import type { User } from '../gen/timika/v1/auth_pb'
   import type { Grant } from '../gen/timika/v1/bastion_pb'
   import UserDrawer from '../components/UserDrawer.svelte'
 
-  let users = $state<User[]>([])
-  let grants = $state<Grant[]>([])
-  let assetCount = $state(0)
-  let loading = $state(true)
-  let error = $state('')
+  const usersQ = createQuery(() => ({ queryKey: keys.users, queryFn: () => authApi.listUsers({}) }))
+  const grantsQ = createQuery(() => ({ queryKey: keys.grants, queryFn: () => bastion.listAllGrants({}) }))
+  const assetsQ = createQuery(() => ({ queryKey: keys.assets, queryFn: () => bastion.listAssets({}) }))
+  const users = $derived<User[]>([...(usersQ.data?.users ?? [])].sort((x, y) => x.username.localeCompare(y.username)))
+  const grants = $derived<Grant[]>(grantsQ.data?.grants ?? [])
+  const assetCount = $derived(assetsQ.data?.assets.length ?? 0)
+  const loading = $derived(usersQ.isPending)
+  const failed = $derived(usersQ.error ?? grantsQ.error ?? assetsQ.error)
+  const error = $derived(failed ? errMsg(failed) : '')
+  const load = () => { usersQ.refetch(); grantsQ.refetch() }
   let q = $state('')
   let roleFilter = $state('')
   let drawer = $state<{ open: boolean; user: User | null }>({ open: false, user: null })
-
-  async function load() {
-    try {
-      const [u, g, a] = await Promise.all([authApi.listUsers({}), bastion.listAllGrants({}), bastion.listAssets({})])
-      users = u.users.sort((x, y) => x.username.localeCompare(y.username))
-      grants = g.grants
-      assetCount = a.assets.length
-      error = ''
-    } catch (e) { error = errMsg(e) } finally { loading = false }
-  }
-  onMount(load)
 
   const shown = $derived(users.filter((u) =>
     (!roleFilter || roleOf(u.policies) === roleFilter) &&

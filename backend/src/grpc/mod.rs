@@ -19,6 +19,7 @@ pub mod client;
 pub mod cluster;
 pub mod convert;
 pub mod kv;
+pub mod monitor;
 pub mod sys;
 
 pub mod pb {
@@ -49,9 +50,25 @@ pub enum Need {
     Admin,
 }
 
+/// tonic doesn't escape `%` in `grpc-message`, and clients percent-decode it:
+/// a literal `%` (a file name, "90 %") would make the whole error unreadable.
+fn safe(m: String) -> String {
+    if m.contains('%') { m.replace('%', "％") } else { m }
+}
+
 impl From<AppError> for Status {
     fn from(e: AppError) -> Self {
         tracing::warn!("request failed: {e}");
+        let e = match e {
+            AppError::Auth(m) => AppError::Auth(safe(m)),
+            AppError::Forbidden(m) => AppError::Forbidden(safe(m)),
+            AppError::NotFound(m) => AppError::NotFound(safe(m)),
+            AppError::BadRequest(m) => AppError::BadRequest(safe(m)),
+            AppError::RateLimited(m) => AppError::RateLimited(safe(m)),
+            AppError::Unavailable(m) => AppError::Unavailable(safe(m)),
+            AppError::Conflict(m) => AppError::Conflict(safe(m)),
+            other => other,
+        };
         match e {
             AppError::Auth(m) => Status::unauthenticated(m),
             AppError::Forbidden(m) => Status::permission_denied(m),
@@ -139,6 +156,7 @@ pub fn router(st: AppState) -> axum::Router {
     use pb::bastion_service_server::BastionServiceServer;
     use pb::cluster_service_server::ClusterServiceServer;
     use pb::kv_service_server::KvServiceServer;
+    use pb::monitor_service_server::MonitorServiceServer;
     use pb::sys_service_server::SysServiceServer;
 
     let ctx = Ctx { st: st.clone() };
@@ -163,6 +181,7 @@ pub fn router(st: AppState) -> axum::Router {
         .add_service(tonic_web::enable(BastionServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(AuditServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(AutomationServiceServer::new(ctx.clone())))
+        .add_service(tonic_web::enable(MonitorServiceServer::new(ctx.clone())))
         .add_service(tonic_web::enable(ClusterServiceServer::new(ctx)))
         .add_service(tonic_web::enable(health))
         .into_axum_router()

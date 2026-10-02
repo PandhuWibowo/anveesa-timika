@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+import "timika/v1/automation.proto";
+
+// Server monitoring, in the spirit of Beszel — but with no agent to install:
+// timika reads metrics over SSH, with the credentials and pinned host key it
+// already has for the server. CPU, memory, disk, network, load, temperature,
+// Docker containers and failed systemd units, with history and alerts.
+//
+// Anyone who may use a server (a grant) can see its metrics; everything else
+// is admin only.
+service MonitorService {
+  // Monitored systems with their latest numbers. Admins also get the servers
+  // that are not monitored yet (`available`).
+  rpc ListSystems(google.protobuf.Empty) returns (ListSystemsResponse);
+  // One system: latest numbers, disks, containers, failed units, rules and
+  // history for `range`.
+  rpc GetSystem(GetSystemRequest) returns (SystemDetail);
+  // Start or stop monitoring servers (`account` empty = the first account).
+  rpc SetMonitoring(SetMonitoringRequest) returns (google.protobuf.Empty);
+  // This system's own alert rules, or back to the defaults.
+  rpc SetSystemAlerts(SystemAlerts) returns (google.protobuf.Empty);
+  rpc GetSettings(google.protobuf.Empty) returns (MonitorSettings);
+  rpc SaveSettings(SaveMonitorSettings) returns (MonitorSettings);
+  rpc TestNotifier(MonitorTestRequest) returns (TestNotifierResponse);
+
+  // Every container on every monitored server you may see.
+  rpc ListContainers(google.protobuf.Empty) returns (ListContainersResponse);
+  // The last lines of a container's output (`docker logs`). Admin only: logs
+  // are read as the monitoring account and often hold secrets.
+  rpc ContainerLogs(ContainerLogsRequest) returns (ContainerLogsResponse);
+  // start · stop · restart. Admin only.
+  rpc ContainerAction(ContainerActionRequest) returns (ContainerActionResponse);
+}
+
+message ContainerRow {
+  string asset = 1;
+  string system = 2;
+  Container container = 3;
+}
+
+message ListContainersResponse {
+  repeated ContainerRow containers = 1;
+}
+
+message ContainerLogsRequest {
+  string asset = 1;
+  string name = 2;
+  // Lines from the end (default 200, at most 2000).
+  uint32 tail = 3;
+}
+
+message ContainerLogsResponse {
+  string text = 1;
+  bool truncated = 2;
+}
+
+message ContainerActionRequest {
+  string asset = 1;
+  string name = 2;
+  string action = 3;
+}
+
+message ContainerActionResponse {
+  bool ok = 1;
+  string output = 2;
+}
+
+// One container's history, aligned with SystemDetail.times (NaN = no reading).
+message ContainerSeries {
+  string name = 1;
+  repeated double cpu = 2;
+  // Bytes.
+  repeated double mem = 3;
+  // Bytes per second.
+  repeated double rx = 4;
+  repeated double tx = 5;
+}
+
+message Latest {
+  // Percent (0–100); absent when the server doesn't report it.
+  optional double cpu = 1;
+  optional double mem = 2;
+  uint64 mem_used = 3;
+  uint64 mem_total = 4;
+  optional double swap = 5;
+  optional double disk = 6;
+  uint64 disk_used = 7;
+  uint64 disk_total = 8;
+  // Bytes per second.
+  optional double rx = 9;
+  optional double tx = 10;
+  optional double load1 = 11;
+  optional double load5 = 12;
+  optional double load15 = 13;
+  // Hottest sensor, °C.
+  optional double temp = 14;
+  optional double io_read = 15;
+  optional double io_write = 16;
+  uint64 uptime = 17;
+  string os = 18;
+  string kernel = 19;
+  string cpu_model = 20;
+  uint32 cpus = 21;
+  // When this was read.
+  string time = 22;
+}
+
+message Disk {
+  string device = 1;
+  string mount = 2;
+  uint64 total = 3;
+  uint64 used = 4;
+}
+
+message Container {
+  string name = 1;
+  // running · exited · paused · restarting …
+  string state = 2;
+  optional double cpu = 3;
+  uint64 mem = 4;
+  string image = 5;
+  // "Up 3 hours (healthy)"
+  string status = 6;
+  string ports = 7;
+  // healthy · unhealthy · starting, or empty
+  string health = 8;
+  uint64 mem_limit = 9;
+  // Bytes per second.
+  optional double rx = 10;
+  optional double tx = 11;
+}
+
+message AlertRule {
+  // status · cpu · mem · swap · disk · rx · tx · load · temp
+  string metric = 1;
+  // Percent, bytes per second, load, °C. Ignored for `status`.
+  double threshold = 2;
+  // Average over this many minutes (for `status`: down this long).
+  uint32 minutes = 3;
+}
+
+message Firing {
+  string metric = 1;
+  string since = 2;
+  optional double value = 3;
+}
+
+message System {
+  string asset = 1;
+  string name = 2;
+  string host = 3;
+  repeated string tags = 4;
+  // The account used to read metrics.
+  string account = 5;
+  // pending · up · down
+  string status = 6;
+  // Since when it is up / down.
+  optional string since = 7;
+  optional string error = 8;
+  optional Latest latest = 9;
+  // CPU % of the last samples, for the sparkline.
+  repeated double spark = 10;
+  repeated Firing firing = 11;
+  uint32 containers_running = 12;
+  uint32 containers_total = 13;
+  uint32 failed_units = 14;
+  // The last reading that failed (also after it recovered), and when.
+  optional string last_error = 15;
+  optional string last_error_at = 16;
+}
+
+message Available {
+  string asset = 1;
+  string name = 2;
+  string host = 3;
+  repeated string tags = 4;
+  repeated string accounts = 5;
+}
+
+message ListSystemsResponse {
+  repeated System systems = 1;
+  repeated Available available = 2;
+  // Seconds between readings.
+  uint32 interval = 3;
+}
+
+message GetSystemRequest {
+  string asset = 1;
+  // 1h · 6h · 24h · 7d · 30d · 90d
+  string range = 2;
+}
+
+message Series {
+  string metric = 1;
+  // One value per timestamp; NaN = no reading.
+  repeated double values = 2;
+}
+
+message SystemDetail {
+  System system = 1;
+  repeated Disk disks = 2;
+  repeated Container containers = 3;
+  repeated string failed_unit_names = 4;
+  // The rules in force and whether they are the defaults.
+  repeated AlertRule rules = 5;
+  bool default_rules = 6;
+  // Unix seconds.
+  repeated int64 times = 7;
+  repeated Series series = 8;
+  // Seconds between points of this range.
+  uint32 step = 9;
+  repeated ContainerSeries container_series = 10;
+}
+
+message SetMonitoringRequest {
+  repeated string assets = 1;
+  bool enabled = 2;
+  string account = 3;
+}
+
+message SystemAlerts {
+  string asset = 1;
+  bool use_defaults = 2;
+  repeated AlertRule rules = 3;
+}
+
+message MonitorSettings {
+  repeated AlertRule defaults = 1;
+  repeated Notifier notifiers = 2;
+  uint32 interval = 3;
+}
+
+message SaveMonitorSettings {
+  repeated AlertRule defaults = 1;
+  repeated NotifierInput notifiers = 2;
+}
+
+message MonitorTestRequest {
+  NotifierInput notifier = 1;
+}

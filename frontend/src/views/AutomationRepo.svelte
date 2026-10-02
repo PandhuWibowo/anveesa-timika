@@ -1,6 +1,7 @@
 <script lang="ts">
   // One repository: its projects (with Plan / Apply etc.), runs, commits and setup.
-  import { onMount } from 'svelte'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { keys, queryClient } from '../lib/query'
   import { FileCode, ArrowLeft, RefreshCw, Pencil, Loader2, ExternalLink, Copy, Check, Eye, EyeOff, Trash2, CircleAlert, KeyRound, Globe, Lock, Server, Webhook, Play, ShieldCheck, SlidersHorizontal, CalendarClock, Plus, UserCheck, Rocket, Hourglass } from '@lucide/svelte'
   import { automation, errMsg } from '../lib/api'
   import { isAdmin } from '../lib/session.svelte'
@@ -23,43 +24,31 @@
   // A link to /files/… (the code buttons) switches to that tab.
   $effect(() => { if (initialTab === 'files') tab = 'files' })
 
-  let repo = $state<Repo | null>(null)
-  let commits = $state<Commit[]>([])
-  let runs = $state<Run[]>([])
-  let error = $state('')
+  const repoQ = createQuery(() => ({ queryKey: keys.repo(id), queryFn: () => automation.getRepo({ id }), refetchInterval: 4000 }))
+  const runsQ = createQuery(() => ({ queryKey: keys.runs(id), queryFn: () => automation.listRuns({ repo: id, limit: 100 }), refetchInterval: 4000 }))
+  const schedQ = createQuery(() => ({ queryKey: keys.schedules(id), queryFn: () => automation.listSchedules({ repo: id }), refetchInterval: 15000 }))
+  const repo = $derived<Repo | null>(repoQ.data?.repo ?? null)
+  const commits = $derived<Commit[]>(repoQ.data?.commits ?? [])
+  const runs = $derived<Run[]>(runsQ.data?.runs ?? [])
+  const schedules = $derived<Schedule[]>(schedQ.data?.schedules ?? [])
+  let actionError = $state('')
+  const error = $derived(actionError || (repoQ.error && !repoQ.data ? errMsg(repoQ.error) : ''))
+  const load = () => { repoQ.refetch(); runsQ.refetch(); schedQ.refetch() }
+  /** Put a repository an action returned straight into the cache. */
+  const setRepo = (r: Repo) => queryClient.setQueryData(keys.repo(id), (old: typeof repoQ.data) => (old ? { ...old, repo: r } : old))
   let pulling = $state(false)
   let starting = $state('')
   let drawer = $state(false)
   let showSecret = $state(false)
   let copied = $state('')
-  let schedules = $state<Schedule[]>([])
   let runDialog = $state<Project | null>(null)
   let schedDialog = $state<{ open: boolean; s: Schedule | null }>({ open: false, s: null })
   let showToken = $state(false)
   const canManage = isAdmin()
 
-  async function load() {
-    try {
-      const [d, r, sc] = await Promise.all([automation.getRepo({ id }), automation.listRuns({ repo: id, limit: 100 }), automation.listSchedules({ repo: id })])
-      schedules = sc.schedules
-      repo = d.repo ?? null
-      commits = d.commits
-      runs = r.runs
-      error = ''
-    } catch (e) { error = errMsg(e) }
-  }
-
-  onMount(() => {
-    load()
-    const t = setInterval(() => { if (!document.hidden) load() }, 4000)
-    const onVis = () => { if (!document.hidden) load() }
-    document.addEventListener('visibilitychange', onVis)
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', onVis) }
-  })
-
   async function pull() {
     pulling = true
-    try { repo = await automation.syncRepo({ id }); load(); error = '' } catch (e) { error = errMsg(e) } finally { pulling = false }
+    try { setRepo(await automation.syncRepo({ id })); load(); actionError = '' } catch (e) { actionError = errMsg(e) } finally { pulling = false }
   }
 
   async function start(p: Project, action: string, plan?: Run) {
@@ -76,41 +65,41 @@
     try {
       const r = await automation.startRun({ repo: id, project: p.id, action, planRun: plan?.id })
       navigate(`/automation/run/${r.id}`)
-    } catch (e) { error = errMsg(e) } finally { starting = '' }
+    } catch (e) { actionError = errMsg(e) } finally { starting = '' }
   }
 
   async function remove() {
     if (!repo) return
     const ok = await confirm({ title: `Remove ${repo.name}?`, message: 'Its runs, output and saved plans are deleted from timika. Nothing changes in the repository or your infrastructure.', confirmText: 'Remove', variant: 'danger' })
     if (!ok) return
-    try { await automation.deleteRepo({ id }); navigate('/automation') } catch (e) { error = errMsg(e) }
+    try { await automation.deleteRepo({ id }); queryClient.invalidateQueries({ queryKey: keys.repos }); navigate('/automation') } catch (e) { actionError = errMsg(e) }
   }
 
   async function setApproval(on: boolean) {
-    try { repo = await automation.setRepoPolicy({ id, requireApproval: on }) } catch (e) { error = errMsg(e) }
+    try { setRepo(await automation.setRepoPolicy({ id, requireApproval: on })) } catch (e) { actionError = errMsg(e) }
   }
 
   async function rotateToken() {
     const ok = await confirm({ title: 'New CI token?', message: 'The current token stops working — update it in your CI secrets.', confirmText: 'Rotate', variant: 'warning' })
     if (!ok) return
-    try { repo = await automation.rotateTriggerToken({ id }); showToken = true } catch (e) { error = errMsg(e) }
+    try { setRepo(await automation.rotateTriggerToken({ id })); showToken = true } catch (e) { actionError = errMsg(e) }
   }
 
   async function toggleSchedule(sc: Schedule) {
     try {
       await automation.saveSchedule({ id: sc.id, repo: sc.repo, project: sc.project, action: sc.action, name: sc.name, cron: sc.cron, timezone: sc.timezone, enabled: !sc.enabled, options: sc.options })
       load()
-    } catch (e) { error = errMsg(e) }
+    } catch (e) { actionError = errMsg(e) }
   }
 
   async function runNow(sc: Schedule) {
-    try { const r = await automation.runScheduleNow({ id: sc.id }); navigate(`/automation/run/${r.id}`) } catch (e) { error = errMsg(e) }
+    try { const r = await automation.runScheduleNow({ id: sc.id }); navigate(`/automation/run/${r.id}`) } catch (e) { actionError = errMsg(e) }
   }
 
   async function removeSchedule(sc: Schedule) {
     const ok = await confirm({ title: `Delete “${sc.name}”?`, message: 'Runs it already started are kept.', confirmText: 'Delete', variant: 'danger' })
     if (!ok) return
-    try { await automation.deleteSchedule({ id: sc.id }); load() } catch (e) { error = errMsg(e) }
+    try { await automation.deleteSchedule({ id: sc.id }); load() } catch (e) { actionError = errMsg(e) }
   }
 
   function copy(text: string, tag: string) {
@@ -298,7 +287,7 @@
                 <p class="muted">Plans, checks and previews still start right away. Whoever asked can't approve their own run.</p>
               </div>
 
-              <NotifySettings {repo} onsaved={(r) => (repo = r)} />
+              <NotifySettings {repo} onsaved={setRepo} />
 
               <div class="setup__block">
                 <div class="setup__title"><Rocket size={14} /> CI trigger</div>
@@ -370,7 +359,7 @@
 {/if}
 
 {#if drawer && repo}
-  <RepoDrawer {repo} onclose={() => (drawer = false)} onsaved={(r) => { drawer = false; repo = r; load() }} />
+  <RepoDrawer {repo} onclose={() => (drawer = false)} onsaved={(r) => { drawer = false; setRepo(r); load() }} />
 {/if}
 
 <style>

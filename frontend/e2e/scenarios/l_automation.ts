@@ -568,3 +568,12 @@ scenario('L', 'the file viewer lists folders and reads files at the pulled commi
   const raw = JSON.stringify(auditEntries(x.node))
   ok(raw.includes('read /README.md at') && !raw.includes('# hi'), 'reads are audited by path, never content')
 })
+
+scenario('L', 'a tool missing on the runner fails the run and names the tool', async () => {
+  if (Bun.which('pulumi')) return console.log('    (skipped: pulumi is installed here)')
+  const x = await iac()
+  const { repo } = await connect(x, { files: { 'dns/Pulumi.yaml': 'name: dns\nruntime: nodejs\n' } })
+  eq(repo.projects.map((p) => p.id), ['pulumi:dns'], 'pulumi project')
+  const run = await finished(x.c, (await x.c.automation.startRun({ repo: repo.id, project: 'pulumi:dns', action: 'preview' })).id)
+  eq([run.status, run.error], ['failed', 'pulumi is not installed on the runner server'], 'names the tool')
+})

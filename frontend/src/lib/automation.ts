@@ -170,7 +170,8 @@ export function describeCron(cron: string): string {
   const { preset, time } = presetOf(cron)
   if (preset === 'custom') return cron
   if (preset === 'hourly') return `every hour at :${time.slice(3)}`
-  return `${PRESETS.find((p) => p.id === preset)!.label.toLowerCase()} at ${time}`
+  const label = PRESETS.find((p) => p.id === preset)!.label
+  return `${label[0].toLowerCase()}${label.slice(1)} at ${time}`
 }
 
 /** The browser's UTC offset as +07:00. */

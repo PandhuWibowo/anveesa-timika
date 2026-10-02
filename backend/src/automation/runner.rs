@@ -556,7 +556,15 @@ async fn execute_inner(core: &Arc<Core>, id: &str, log: &mut Log) -> Result<(), 
         (Some("timeout"), _) => Some(format!("stopped after the {} min time limit", timeout().as_secs() / 60)),
         (Some(_), _) => None,
         (None, Some(0)) => None,
-        (None, Some(127)) => Some("a tool is missing on the runner server".into()),
+        // run.sh says which one ("ansible-playbook is not installed on the runner server").
+        (None, Some(127)) => Some(
+            log.tail
+                .lines()
+                .rev()
+                .find(|l| l.contains("is not installed on the runner server"))
+                .map(|l| l.trim().to_string())
+                .unwrap_or_else(|| "a tool is missing on the runner server".into()),
+        ),
         (None, Some(c)) => Some(format!("exited with code {c}")),
         (None, None) => Some("the connection to the runner closed unexpectedly".into()),
     };

@@ -1,6 +1,7 @@
 import { sys } from './api'
 import type { SealStatus, Instance } from '../gen/timika/v1/sys_pb'
 import type { LastLogin } from '../gen/timika/v1/auth_pb'
+import { clearCache } from './query'
 
 export type { SealStatus, Instance }
 
@@ -38,6 +39,7 @@ export const session = $state({
 })
 
 export function setToken(t: string, me: Me | null = null) {
+  clearCache()
   session.token = t
   session.me = me
   session.signedOutReason = ''
@@ -54,6 +56,7 @@ export function updateMe(patch: Partial<Me>) {
 }
 
 export function clearToken(reason = '') {
+  clearCache()
   session.token = null
   session.me = null
   session.signedOutReason = reason
@@ -69,6 +72,7 @@ export const isReadOnly = () => !!session.me?.policies.includes('read-only')
 export const canReadVault = () => isAdmin() || isReadOnly()
 
 export function markSealed() {
+  clearCache()
   if (session.status) session.status.sealed = true
 }
 

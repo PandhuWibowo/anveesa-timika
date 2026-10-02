@@ -613,6 +613,10 @@ pub fn routine(action: &str) -> bool {
             | "AutomationService/WatchRun"
             | "AutomationService/ListSchedules"
             | "AutomationService/ListRepoFiles"
+            | "MonitorService/ListSystems"
+            | "MonitorService/GetSystem"
+            | "MonitorService/GetSettings"
+            | "MonitorService/ListContainers"
             | "ClusterService/Configuration"
             | "KvService/List"
             | "KvService/GetMetadata"
@@ -628,6 +632,8 @@ pub fn category(action: &str) -> &'static str {
         "sessions"
     } else if action.starts_with("AutomationService/") || action.contains("/v1/automation/") {
         "automation"
+    } else if action.starts_with("MonitorService/") {
+        "servers"
     } else if action.starts_with("KvService/") {
         "secrets"
     } else if matches!(rpc, "Login" | "LookupSelf" | "RenewSelf" | "RevokeSelf" | "ChangePassword") {

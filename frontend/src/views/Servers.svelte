@@ -4,32 +4,28 @@
   import { onMount } from 'svelte'
   import { Plus, Search, Server, ShieldCheck, ShieldAlert, Pencil, Trash2, Loader2, SquareTerminal, Activity, ChevronDown, History, FolderOpen } from '@lucide/svelte'
   import { bastion, errMsg } from '../lib/api'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { keys } from '../lib/query'
   import { confirm } from '../lib/ui.svelte'
   import { openTerminal, terminals, loadXterm } from '../lib/terminals.svelte'
   import { navigate } from '../lib/router.svelte'
   import type { Asset } from '../gen/timika/v1/bastion_pb'
   import ServerDrawer from '../components/ServerDrawer.svelte'
 
-  let assets = $state<Asset[]>([])
-  let canManage = $state(false)
-  let loading = $state(true)
-  let error = $state('')
+  const list = createQuery(() => ({ queryKey: keys.assets, queryFn: () => bastion.listAssets({}) }))
+  const assets = $derived(list.data?.assets ?? [])
+  const canManage = $derived(list.data?.canManage ?? false)
+  const loading = $derived(list.isPending)
+  const load = () => list.refetch()
+  let actionError = $state('')
+  const error = $derived(actionError || (list.error ? errMsg(list.error) : ''))
   let q = $state('')
   let searchEl = $state<HTMLInputElement>()
   let drawer = $state<{ open: boolean; asset: Asset | null }>({ open: false, asset: null })
   let testing = $state<Record<string, string>>({})
   let picker = $state<string | null>(null)
 
-  async function load() {
-    try {
-      const r = await bastion.listAssets({})
-      assets = r.assets
-      canManage = r.canManage
-      error = ''
-    } catch (e) { error = errMsg(e) } finally { loading = false }
-  }
   onMount(() => {
-    load()
     loadXterm() // prefetch, so Connect is instant
     searchEl?.focus()
   })
@@ -72,7 +68,7 @@
       variant: 'danger',
     })
     if (!ok) return
-    try { await bastion.deleteAsset({ id: a.id }); await load() } catch (e) { error = errMsg(e) }
+    try { await bastion.deleteAsset({ id: a.id }); await load() } catch (e) { actionError = errMsg(e) }
   }
 </script>
 

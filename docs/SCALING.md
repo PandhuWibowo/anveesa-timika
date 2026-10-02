@@ -77,6 +77,12 @@ Each replica advertises its own address. When `BIND_ADDR` is `0.0.0.0` and
 - Restarting or sealing a replica drops the terminals it was serving; people
   press **Reconnect**, and the UI retries reads on its own.
 
+## Monitoring across replicas
+
+One replica collects (Raft: the leader; Redis: the holder of `monitor/lease`,
+taken over within three intervals); all serve the stored numbers. See
+[MONITORING.md](MONITORING.md#how-it-scales).
+
 ## Infrastructure runs across replicas
 
 - Each replica keeps its own bare clone of a repository (`AUTOMATION_DIR`) and

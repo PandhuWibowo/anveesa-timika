@@ -17,6 +17,7 @@ import { BastionService } from '../src/gen/timika/v1/bastion_pb'
 import { ClusterService } from '../src/gen/timika/v1/cluster_pb'
 import { AuditService } from '../src/gen/timika/v1/audit_pb'
 import { AutomationService } from '../src/gen/timika/v1/automation_pb'
+import { MonitorService } from '../src/gen/timika/v1/monitor_pb'
 import { Health } from './gen/grpc/health/v1/health_pb'
 
 export { Code, ConnectError }
@@ -210,6 +211,7 @@ function clientsFor(t: Transport) {
     cluster: createClient(ClusterService, t),
     audit: createClient(AuditService, t),
     automation: createClient(AutomationService, t),
+    monitor: createClient(MonitorService, t),
     health: createClient(Health, t),
   }
 }
@@ -312,7 +314,7 @@ export function sshKeygen(path: string, type = 'ed25519', passphrase = '') {
   return { privateKey: readFileSync(path, 'utf8'), publicKey: readFileSync(`${path}.pub`, 'utf8') }
 }
 
-export async function startSsh(opts: { user?: string; password?: string; port?: number; hostKeyName?: string } = {}): Promise<SshTarget> {
+export async function startSsh(opts: { user?: string; password?: string; port?: number; hostKeyName?: string; env?: Record<string, string> } = {}): Promise<SshTarget> {
   const port = opts.port ?? (await freePort())
   const user = opts.user ?? 'deploy'
   const password = opts.password ?? 'target-pass'
@@ -328,7 +330,7 @@ export async function startSsh(opts: { user?: string; password?: string; port?: 
   const t: SshTarget = {
     port, user, password, hostKey, ...client, files,
     async start() {
-      proc = Bun.spawn([SSH_BIN, String(port), hostKey, user, password, join(keyDir, 'client_ed25519.pub'), files], { stdout: 'pipe', stderr: 'pipe' })
+      proc = Bun.spawn([SSH_BIN, String(port), hostKey, user, password, join(keyDir, 'client_ed25519.pub'), files], { stdout: 'pipe', stderr: 'pipe', env: { ...process.env, ...opts.env } })
       const p = proc
       procs.add({ kill: () => p.kill() })
       await waitFor('ssh target', async () => {

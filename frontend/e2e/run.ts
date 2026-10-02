@@ -17,6 +17,7 @@ import './scenarios/i_people_audit'
 import './scenarios/j_files'
 import './scenarios/k_mfa'
 import './scenarios/l_automation'
+import './scenarios/m_monitor'
 
 const filters = process.argv.slice(2)
 const selected = filters.length ? scenarios.filter((s) => filters.some((f) => s.id === f || s.cat === f)) : scenarios

@@ -3,28 +3,23 @@
   import { onMount } from 'svelte'
   import { Search, Loader2 } from '@lucide/svelte'
   import { bastion, errMsg } from '../lib/api'
+  import { createQuery } from '@tanstack/svelte-query'
+  import { keys } from '../lib/query'
   import { isAdmin } from '../lib/session.svelte'
   import type { Session } from '../gen/timika/v1/bastion_pb'
   import SessionsTable from '../components/SessionsTable.svelte'
   import { loadXterm } from '../lib/terminals.svelte'
 
-  let sessions = $state<Session[]>([])
-  let loading = $state(true)
-  let error = $state('')
+  const list = createQuery(() => ({ queryKey: keys.sessions, queryFn: () => bastion.listSessions({}), refetchInterval: 5000 }))
+  const sessions = $derived<Session[]>(list.data?.sessions ?? [])
+  const loading = $derived(list.isPending)
+  const error = $derived(list.error && !list.data ? errMsg(list.error) : '')
+  const load = () => list.refetch()
   let q = $state('')
   let status = $state('')
 
-  async function load() {
-    try {
-      sessions = (await bastion.listSessions({})).sessions
-      error = ''
-    } catch (e) { error = errMsg(e) } finally { loading = false }
-  }
   onMount(() => {
-    load()
     loadXterm() // prefetch for the player
-    const t = setInterval(() => { if (!document.hidden) load() }, 5000)
-    return () => clearInterval(t)
   })
 
   const shown = $derived.by(() => {

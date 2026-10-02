@@ -10,6 +10,7 @@ mod error;
 mod grpc;
 mod kv;
 mod logging;
+mod monitor;
 mod raft;
 mod seal;
 mod routes;
@@ -103,6 +104,7 @@ async fn main() -> anyhow::Result<()> {
     core.spawn_heartbeat();
     core.spawn_auto_unseal();
     automation::schedule::spawn(core.clone());
+    monitor::engine::spawn(core.clone());
     // Bastion: drop recordings past their retention (default 90 days), hourly.
     {
         let core = core.clone();
