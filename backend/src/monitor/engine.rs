@@ -15,7 +15,7 @@ use russh::client::Handle;
 use serde::{Deserialize, Serialize};
 
 use super::collect::{self, Raw};
-use super::{average, bucket, bucket_path, caverage, cbucket, cbucket_path, interval, latest_path, CBucket, Firing, LatestRec, Numbers, Rule, Sample, SystemCfg, MAX_CONTAINERS};
+use super::{average, bucket, bucket_path, caverage, cbucket, cbucket_path, interval, latest_path, CBucket, CVals, Firing, LatestRec, Numbers, Rule, Sample, SystemCfg, MAX_CONTAINERS};
 use crate::automation::notify;
 use crate::bastion::{self, ssh, ssh::Pinned, Secret};
 use crate::core::Core;
@@ -44,7 +44,7 @@ struct Mem {
     loaded: bool,
     /// Containers: the current raw bucket, and the last ~hour for roll-ups.
     craw: (i64, CBucket),
-    cring: VecDeque<(i64, Vec<(String, [Option<f32>; 4])>)>,
+    cring: VecDeque<(i64, Vec<(String, CVals)>)>,
 }
 
 fn human(metric: &str) -> &'static str {
@@ -213,10 +213,10 @@ async fn load(core: &Core, asset: &str, m: &mut Mem, now: i64) -> AppResult<()> 
     let ckey = cbucket(1, now);
     m.craw = (ckey, core.get_json(&cbucket_path(asset, 1, ckey)).await?.unwrap_or_default());
     // Rebuild the roll-up window from what this bucket holds.
-    let mut by_time: std::collections::BTreeMap<i64, Vec<(String, [Option<f32>; 4])>> = Default::default();
+    let mut by_time: std::collections::BTreeMap<i64, Vec<(String, CVals)>> = Default::default();
     for (name, pts) in &m.craw.1 {
         for p in pts {
-            by_time.entry(p.0).or_default().push((name.clone(), p.1));
+            by_time.entry(p.0).or_default().push((name.clone(), p.1.clone()));
         }
     }
     m.cring = by_time.into_iter().collect();
@@ -382,7 +382,7 @@ impl Engine {
                         }
                     }
                     // Containers: the same three resolutions, in their own buckets.
-                    let cpoints: Vec<(String, [Option<f32>; 4])> = m
+                    let cpoints: Vec<(String, CVals)> = m
                         .prev
                         .as_ref()
                         .map(|r| &r.containers)
@@ -390,7 +390,10 @@ impl Engine {
                         .flatten()
                         .filter(|c| c.state == "running")
                         .take(MAX_CONTAINERS)
-                        .map(|c| (c.name.clone(), [c.cpu.map(|v| v as f32), Some(c.mem as f32), c.rx.map(|v| v as f32), c.tx.map(|v| v as f32)]))
+                        .map(|c| {
+                            let f = |v: Option<f64>| v.map(|x| x as f32);
+                            (c.name.clone(), vec![f(c.cpu), Some(c.mem as f32), f(c.rx), f(c.tx), f(c.io_read), f(c.io_write), c.pids.map(|p| p as f32)])
+                        })
                         .collect();
                     if let Some(last) = last {
                         for (res, span) in [(10u32, 600i64), (60, 3600)] {
@@ -398,11 +401,11 @@ impl Engine {
                                 continue;
                             }
                             let w = last.div_euclid(span) * span;
-                            let mut per: std::collections::BTreeMap<&str, Vec<[Option<f32>; 4]>> = Default::default();
+                            let mut per: std::collections::BTreeMap<&str, Vec<CVals>> = Default::default();
                             for (ts, pts) in m.cring.iter().filter(|(ts, _)| *ts >= w && *ts < w + span) {
                                 let _ = ts;
                                 for (name, p) in pts {
-                                    per.entry(name.as_str()).or_default().push(*p);
+                                    per.entry(name.as_str()).or_default().push(p.clone());
                                 }
                             }
                             if per.is_empty() {
@@ -422,7 +425,7 @@ impl Engine {
                             m.craw = (ckey, CBucket::new());
                         }
                         for (name, p) in &cpoints {
-                            m.craw.1.entry(name.clone()).or_default().push((t, *p));
+                            m.craw.1.entry(name.clone()).or_default().push((t, p.clone()));
                         }
                         puts.push((cbucket_path(&cfg.asset, 1, ckey), serde_json::to_vec(&m.craw.1)?));
                     }

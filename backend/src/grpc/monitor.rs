@@ -84,7 +84,18 @@ fn container_pb(c: &mon::Container) -> pb::Container {
         rx: c.rx,
         tx: c.tx,
         runtime: c.runtime.clone(),
+        io_read: c.io_read,
+        io_write: c.io_write,
+        pids: c.pids,
+        size_rw: c.size_rw,
+        size_total: c.size_total,
     }
+}
+
+fn cseries_pb(name: String, cols: Vec<Vec<f64>>) -> pb::ContainerSeries {
+    let mut it = cols.into_iter();
+    let mut next = || it.next().unwrap_or_default();
+    pb::ContainerSeries { name, cpu: next(), mem: next(), rx: next(), tx: next(), io_read: next(), io_write: next(), pids: next() }
 }
 
 fn settings_pb(s: &Settings) -> pb::MonitorSettings {
@@ -169,18 +180,17 @@ impl MonitorService for Ctx {
             .await?
             .into_iter()
             .map(|(name, pts)| {
-                let mut cols = vec![vec![f64::NAN; samples.len()]; 4];
+                let mut cols = vec![vec![f64::NAN; samples.len()]; mon::CMETRICS.len()];
                 for (t, v) in pts {
                     if let Some(i) = index.get(&t) {
                         for (k, col) in cols.iter_mut().enumerate() {
-                            if let Some(x) = v[k] {
+                            if let Some(x) = v.get(k).copied().flatten() {
                                 col[*i] = x as f64;
                             }
                         }
                     }
                 }
-                let mut it = cols.into_iter();
-                pb::ContainerSeries { name, cpu: it.next().unwrap_or_default(), mem: it.next().unwrap_or_default(), rx: it.next().unwrap_or_default(), tx: it.next().unwrap_or_default() }
+                cseries_pb(name, cols)
             })
             .collect();
         let series = mon::METRICS
@@ -303,6 +313,42 @@ impl MonitorService for Ctx {
             }
         }
         Ok(reply(pb::ListContainersResponse { containers }, &me))
+    }
+
+    async fn get_container_usage(&self, req: Request<pb::ContainerUsageRequest>) -> Reply<pb::ContainerUsage> {
+        let (me, _) = self.who(&req, Need::Bastion).await?;
+        let core = &self.st.core;
+        let r = req.get_ref();
+        let a = bastion::get_asset(core, &r.asset).await?;
+        if !self.can_see(&me, &a).await? {
+            return Err(Status::permission_denied(format!("you don't have access to {}", a.name)));
+        }
+        if core.get_json::<SystemCfg>(&mon::system_path(&a.id)).await?.is_none() {
+            return Err(AppError::NotFound(format!("{} is not monitored", a.name)).into());
+        }
+        let rec: LatestRec = core.get_json(&mon::latest_path(&a.id)).await?.unwrap_or_else(LatestRec::pending);
+        let (res, back) = mon::range(&r.range)?;
+        let pts = mon::container_history(core, &a.id, res, back).await?.remove(&r.name).unwrap_or_default();
+        let container = rec.containers.iter().find(|c| c.name == r.name);
+        if container.is_none() && pts.is_empty() {
+            return Err(AppError::NotFound(format!("container `{}` on {}", r.name, a.name)).into());
+        }
+        let mut cols = vec![Vec::with_capacity(pts.len()); mon::CMETRICS.len()];
+        for (_, v) in &pts {
+            for (k, col) in cols.iter_mut().enumerate() {
+                col.push(v.get(k).copied().flatten().map(|x| x as f64).unwrap_or(f64::NAN));
+            }
+        }
+        Ok(reply(
+            pb::ContainerUsage {
+                system: a.name.clone(),
+                container: container.map(container_pb),
+                times: pts.iter().map(|p| p.0).collect(),
+                series: Some(cseries_pb(r.name.clone(), cols)),
+                step: mon::step(res),
+            },
+            &me,
+        ))
     }
 
     async fn container_logs(&self, req: Request<pb::ContainerLogsRequest>) -> Reply<pb::ContainerLogsResponse> {

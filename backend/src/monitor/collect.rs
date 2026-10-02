@@ -48,7 +48,11 @@ for RT in docker podman; do
   out=$($T $RT ps -a --format 'ctr={{.Names}}|{{.State}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null) || continue
   echo "rt=$RT"
   [ -n "$out" ] && printf '%s\n' "$out"
-  ($T $RT stats --no-stream --format 'cst={{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null) || true
+  # Podman spells the process count PIDS.
+  P=PIDs; [ $RT = podman ] && P=PIDS
+  ($T $RT stats --no-stream --format "cst={{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.$P}}" 2>/dev/null) || true
+  # Size on disk (slower: best effort, on its own).
+  ($T $RT ps -a -s --format 'csz={{.Names}}|{{.Size}}' 2>/dev/null) || true
 done
 if command -v systemctl >/dev/null 2>&1; then
   $T systemctl --failed --no-legend --plain 2>/dev/null | awk '$1 != "" { print "unit=" $1 }'
@@ -96,6 +100,21 @@ pub struct Container {
     pub rx: Option<f64>,
     #[serde(default)]
     pub tx: Option<f64>,
+    /// Bytes read / written on block devices since the container started.
+    #[serde(default)]
+    pub blk: Option<(u64, u64)>,
+    #[serde(default)]
+    pub io_read: Option<f64>,
+    #[serde(default)]
+    pub io_write: Option<f64>,
+    /// Processes inside.
+    #[serde(default)]
+    pub pids: Option<u32>,
+    /// Bytes the container wrote on top of its image, and image + that.
+    #[serde(default)]
+    pub size_rw: u64,
+    #[serde(default)]
+    pub size_total: u64,
 }
 
 fn docker() -> String {
@@ -272,6 +291,20 @@ pub fn parse(out: &str) -> Result<Raw, String> {
                         if let Some((rx, tx)) = f.get(3).and_then(|n| n.split_once('/')) {
                             c.net = Some((size_bytes(rx), size_bytes(tx)));
                         }
+                        if let Some((rd, wr)) = f.get(4).and_then(|n| n.split_once('/')) {
+                            c.blk = Some((size_bytes(rd), size_bytes(wr)));
+                        }
+                        c.pids = f.get(5).and_then(|p| p.trim().parse().ok());
+                    }
+                }
+            }
+            "csz" => {
+                // "1.09kB (virtual 192MB)"
+                if let Some((name, size)) = v.split_once('|') {
+                    if let Some(c) = r.containers.iter_mut().find(|c| c.name == name && c.runtime == runtime) {
+                        let (rw, total) = size.split_once('(').unwrap_or((size, ""));
+                        c.size_rw = size_bytes(rw);
+                        c.size_total = size_bytes(total.trim_start_matches("virtual").trim_end_matches(')'));
                     }
                 }
             }
@@ -341,6 +374,13 @@ pub fn container_rates(prev: Option<&Raw>, cur: &mut Raw) {
                 c.tx = Some((t1 - t0) as f64 / dt);
             }
         }
+        let before = p.containers.iter().find(|x| x.name == c.name).and_then(|x| x.blk);
+        if let (Some((r0, w0)), Some((r1, w1))) = (before, c.blk) {
+            if r1 >= r0 && w1 >= w0 {
+                c.io_read = Some((r1 - r0) as f64 / dt);
+                c.io_write = Some((w1 - w0) as f64 / dt);
+            }
+        }
     }
 }
 
@@ -353,7 +393,7 @@ stat=cpu  2000 100 900 16000 400 0 50 50 0 0\nload=0.42 0.30 0.25\n\
 mem.MemTotal=2000000\nmem.MemFree=200000\nmem.MemAvailable=1500000\nmem.Buffers=50000\nmem.Cached=900000\nmem.SwapTotal=1000000\nmem.SwapFree=750000\n\
 net=6000000 3000000\nio=20000 40000\ntemp=54000\n\
 disk=/dev/vda1|/|41152736|20576368\ndisk=tmpfs|/run|200000|1000\ndisk=/dev/vdb|/data|103081248|10308124\ndisk=overlay|/var/lib/docker/overlay2/x/merged|41152736|20576368\ndisk=/dev/loop3|/snap/core/1|100|100\n\
-rt=docker\nctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080->80/tcp\nctr=old-job|exited\nctr=bad name; rm|running\ncst=web|12.50%|128MiB / 1.9GiB|1.5MB / 300kB\nrt=podman\nctr=cache|running|docker.io/library/redis:7|Up 2 hours|\nctr=web|running|dup|Up|\ncst=cache|0.50%|10.5MB / 2GB|-- / --\nunit=nginx.service\nend=1\n";
+rt=docker\nctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp, [::]:8080->80/tcp\nctr=old-job|exited\nctr=bad name; rm|running\ncst=web|12.50%|128MiB / 1.9GiB|1.5MB / 300kB|12MB / 6MB|7\ncsz=web|1.09kB (virtual 192MB)\ncsz=old-job|0B (virtual 13.3kB)\nrt=podman\nctr=cache|running|docker.io/library/redis:7|Up 2 hours|\nctr=web|running|dup|Up|\ncst=cache|0.50%|10.5MB / 2GB|-- / --\nunit=nginx.service\nend=1\n";
 
     #[test]
     fn parses_a_reading() {
@@ -377,6 +417,9 @@ rt=docker\nctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp,
         assert_eq!((w.image.as_str(), w.status.as_str(), w.health.as_str()), ("nginx:1.27", "Up 3 hours (healthy)", "healthy"));
         assert_eq!((w.ports.as_str(), w.net, w.mem_limit), ("0.0.0.0:8080->80/tcp, [::]:8080->80/tcp", Some((1_500_000, 300_000)), (1.9 * 1024.0 * 1024.0 * 1024.0) as u64));
         assert_eq!((r.containers[2].name.as_str(), r.containers[2].image.as_str()), ("old-job", ""), "the short form still parses; odd names are dropped");
+        assert_eq!((w.blk, w.pids, w.size_rw, w.size_total), (Some((12_000_000, 6_000_000)), Some(7), 1090, 192_000_000), "disk I/O, processes, size on disk");
+        assert_eq!((r.containers[2].size_rw, r.containers[2].size_total), (0, 13_300));
+        assert_eq!((r.containers[0].blk, r.containers[0].pids), (None, None), "older stats lines still parse");
         assert_eq!(r.failed_units, ["nginx.service"]);
     }
 
@@ -396,6 +439,10 @@ rt=docker\nctr=web|running|nginx:1.27|Up 3 hours (healthy)|0.0.0.0:8080->80/tcp,
         let mut cur = b.clone();
         container_rates(Some(&older), &mut cur);
         assert_eq!((cur.containers[w].rx, cur.containers[w].tx), (Some(20_000.0), Some(5_000.0)), "1.2 MB in, 300 kB out over 60 s");
+        older.containers[w].blk = Some((0, 0));
+        let mut cur = b.clone();
+        container_rates(Some(&older), &mut cur);
+        assert_eq!((cur.containers[w].io_read, cur.containers[w].io_write), (Some(200_000.0), Some(100_000.0)), "12 MB read, 6 MB written over 60 s");
         older.containers[w].net = Some((9_000_000, 0));
         let mut cur = b.clone();
         container_rates(Some(&older), &mut cur);

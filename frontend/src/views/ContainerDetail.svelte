@@ -79,6 +79,7 @@
         </div>
         {#if canManage}
           <div class="page-hero__actions cd-actions">
+            <button class="base-btn base-btn--ghost base-btn--sm" onclick={() => navigate(`/usage/${asset}/${name}`)} title="CPU, memory, disk and network over time"><Activity size={13} /> Usage</button>
             <button class="base-btn base-btn--primary base-btn--sm" disabled={!running || !system} onclick={shell} title={running ? 'A shell inside the container (bash, or sh) — recorded like any terminal session' : 'Start the container first'}><SquareTerminal size={13} /> Shell</button>
             <button class="base-btn base-btn--ghost base-btn--sm" onclick={() => (logs = true)}><ScrollText size={13} /> Logs</button>
             {#if running}

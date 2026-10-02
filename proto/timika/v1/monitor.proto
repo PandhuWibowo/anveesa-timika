@@ -34,6 +34,25 @@ service MonitorService {
   rpc ContainerLogs(ContainerLogsRequest) returns (ContainerLogsResponse);
   // start · stop · restart. Admin only.
   rpc ContainerAction(ContainerActionRequest) returns (ContainerActionResponse);
+  // One container's latest numbers and history for `range`.
+  rpc GetContainerUsage(ContainerUsageRequest) returns (ContainerUsage);
+}
+
+message ContainerUsageRequest {
+  string asset = 1;
+  string name = 2;
+  // 1h · 6h · 24h · 7d · 30d · 90d
+  string range = 3;
+}
+
+message ContainerUsage {
+  string system = 1;
+  // Absent when the container is gone from the last reading.
+  optional Container container = 2;
+  // Unix seconds; the series' values line up with these.
+  repeated int64 times = 3;
+  ContainerSeries series = 4;
+  uint32 step = 5;
 }
 
 message ContainerRow {
@@ -78,6 +97,9 @@ message ContainerSeries {
   // Bytes per second.
   repeated double rx = 4;
   repeated double tx = 5;
+  repeated double io_read = 6;
+  repeated double io_write = 7;
+  repeated double pids = 8;
 }
 
 message Latest {
@@ -134,6 +156,14 @@ message Container {
   optional double tx = 11;
   // docker · podman
   string runtime = 12;
+  // Disk I/O, bytes per second.
+  optional double io_read = 13;
+  optional double io_write = 14;
+  // Processes inside.
+  optional uint32 pids = 15;
+  // Bytes written on top of the image, and image + that.
+  uint64 size_rw = 16;
+  uint64 size_total = 17;
 }
 
 message AlertRule {

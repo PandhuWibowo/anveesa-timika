@@ -244,3 +244,44 @@ scenario('M', 'containers: image, status, ports, health and network rates; histo
   ok(raw.includes(`restart container web on ${id}`) && raw.includes(`logs of container web on ${id}`), 'audited')
   await t.stop()
 })
+
+scenario('M', 'container usage: disk I/O rate, processes and size on disk per container; its own history for a range; only for people with access', async () => {
+  const s = await server()
+  const now = Math.floor(Date.now() / 1000)
+  const ctr = (cpu: string, rd: number, pids: number) => [
+    'ctr=api|running|acme/api:2.1|Up 3 hours|8080/tcp', 'ctr=job|exited|acme/job:1|Exited (0) 1 hour ago|',
+    `cst=api|${cpu}%|256MiB / 1GiB|1MB / 1MB|${rd}MB / 6MB|${pids}`,
+    'csz=api|2.5MB (virtual 190MB)', 'csz=job|0B (virtual 50MB)',
+  ].join('\n')
+  metrics(s.t, { now, extra: ctr('10.00', 12, 7) })
+  await s.c.monitor.setMonitoring({ assets: [s.id], enabled: true })
+  await waitFor('first reading', async () => (await sys(s.c, s.id))?.containersTotal === 2)
+  // A minute later: 6 MB more read, nothing written, 9 processes.
+  metrics(s.t, { now: now + 60, busy: 1100, total: 11000, extra: ctr('30.00', 18, 9) })
+  const find = async (n: string) => (await s.c.monitor.listContainers({})).containers.find((r) => r.asset === s.id && r.container?.name === n)?.container
+  const api = await waitFor('disk I/O rate', async () => { const c = await find('api'); return c?.ioRead !== undefined && c })
+  eq([api.cpu, api.ioRead, api.ioWrite, api.pids], [30, 100000, 0, 9], 'cpu, disk read / write per second, processes')
+  eq([api.sizeRw, api.sizeTotal, api.mem, api.memLimit], [2_500_000n, 190_000_000n, 256n * 1024n * 1024n, 1024n * 1024n * 1024n], 'written on top of the image, with the image, memory of its limit')
+  const job = (await find('job'))!
+  eq([job.state, job.sizeTotal, job.cpu, job.pids], ['exited', 50_000_000n, undefined, undefined], 'a stopped container still has a size, but no usage')
+
+  const u = await s.c.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '1h' })
+  const real = (v: number[]) => v.filter((x) => !Number.isNaN(x))
+  eq([u.system, u.container?.name, u.step], [s.name, 'api', 1], 'the container and its server')
+  ok(u.times.length >= 2 && [...u.times].every((t, i, a) => !i || a[i - 1] < t), `oldest first: ${u.times}`)
+  const se = u.series!
+  ok([se.cpu, se.mem, se.rx, se.tx, se.ioRead, se.ioWrite, se.pids].every((v) => v.length === u.times.length), 'every series lines up with the times')
+  ok(real(se.cpu).includes(10) && real(se.cpu).includes(30), `cpu history: ${se.cpu}`)
+  ok(real(se.ioRead).includes(100000) && real(se.pids).includes(7) && real(se.pids).includes(9) && real(se.mem).every((v) => v === 256 * 1024 * 1024), 'disk I/O, processes and memory history')
+  ok((await s.c.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '24h' })).step === 600, 'longer ranges use averages')
+  eq((await s.c.monitor.getContainerUsage({ asset: s.id, name: 'job', range: '1h' })).times.length, 0, 'a stopped container: known, no history')
+  await fails(s.c.monitor.getContainerUsage({ asset: s.id, name: 'nope', range: '1h' }), Code.NotFound)
+  await fails(s.c.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '2y' }), Code.InvalidArgument)
+
+  const name = uniq('usage-user')
+  const p = web(s.node, await createUser(s.v, name, ['ssh']))
+  await fails(p.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '1h' }), Code.PermissionDenied)
+  await s.c.bastion.createGrant({ asset: s.id, subjectType: 'user', subject: name })
+  eq((await p.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '1h' })).container?.pids, 9, 'granted → usage is visible')
+  await s.t.stop()
+})

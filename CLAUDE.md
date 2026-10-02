@@ -69,7 +69,7 @@ make redis-sentinel-up / redis-cluster-up   # Redis HA rigs with timika inside
 make stop         # free the dev ports
 make gen          # regenerate frontend/src/gen from proto/ (after editing a .proto)
 make test         # gen + cargo test + svelte-check
-make e2e          # 313 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
+make e2e          # 314 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
 make helm-lint    # lint deploy/helm/timika
 ```
 
@@ -140,7 +140,8 @@ frontend/src/
                   Automation / AutomationRepo / RunView (+ components RepoDrawer, RunsTable, RunDialog,
                   RunOptionsForm, ScheduleDialog, NotifySettings), Monitoring / MonitorSystem
                   (+ Chart, RulesEditor, MonitorSettings, ContainerPanel, ContainerLogs), Containers /
-                  ContainerDetail (+ ContainerFiles), Images, Volumes
+                  ContainerDetail (+ ContainerFiles), Images, Volumes,
+                  ContainerUsage (+ ContainerUsageDetail; Monitoring → Containers, #/usage)
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)

@@ -84,8 +84,12 @@ pub fn bucket_path(asset: &str, res: u32, key: i64) -> String {
     format!("monitor/d/{asset}/{res}/{key}")
 }
 
-/// One container sample: (unix seconds, [cpu %, memory bytes, rx B/s, tx B/s]).
-pub type CPoint = (i64, [Option<f32>; 4]);
+/// The values of one container sample, in this order.
+pub const CMETRICS: [&str; 7] = ["cpu", "mem", "rx", "tx", "io_read", "io_write", "pids"];
+/// One container sample: (unix seconds, values in `CMETRICS` order). A Vec, so
+/// samples stored before a metric existed (shorter) still read.
+pub type CVals = Vec<Option<f32>>;
+pub type CPoint = (i64, CVals);
 /// Container name → its samples, in one storage bucket.
 pub type CBucket = std::collections::BTreeMap<String, Vec<CPoint>>;
 /// At most this many containers per server get history (the busiest by name order of `docker ps`).
@@ -105,10 +109,10 @@ pub fn cbucket_path(asset: &str, res: u32, key: i64) -> String {
     format!("monitor/c/{asset}/{res}/{key}")
 }
 
-pub fn caverage(points: &[[Option<f32>; 4]]) -> [Option<f32>; 4] {
-    let mut out = [None; 4];
+pub fn caverage(points: &[CVals]) -> CVals {
+    let mut out = vec![None; CMETRICS.len()];
     for (i, o) in out.iter_mut().enumerate() {
-        let vals: Vec<f32> = points.iter().filter_map(|p| p[i]).collect();
+        let vals: Vec<f32> = points.iter().filter_map(|p| p.get(i).copied().flatten()).collect();
         if !vals.is_empty() {
             *o = Some(vals.iter().sum::<f32>() / vals.len() as f32);
         }

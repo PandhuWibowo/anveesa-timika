@@ -37,7 +37,7 @@ One read-only POSIX `sh` script per reading (`monitor/collect.rs`), from
 | Disk I/O, network | `/sys/block/*/stat`, `/proc/net/dev` (all interfaces but `lo`), as bytes per second |
 | Load, uptime, OS, kernel, CPU model | `/proc/loadavg`, `/proc/uptime`, `/etc/os-release`, `/proc/cpuinfo` |
 | Temperature | the hottest of `/sys/class/thermal` and `hwmon` sensors |
-| Containers | `docker` / `podman` `ps -a` and `stats --no-stream` (state, CPU %, memory, network) |
+| Containers | `docker` / `podman` `ps -a`, `ps -a -s` and `stats --no-stream` (state, CPU %, memory, network, disk I/O, processes, size on disk) |
 | Failed services | `systemctl --failed` |
 
 Container-runtime and systemd calls are limited to 8 s, so a stuck daemon doesn't make the
@@ -63,15 +63,23 @@ server look down.
 ## Containers (Docker and Podman)
 
 When the monitoring account can run `docker` or `podman`, each reading also
-takes `ps -a` and `stats --no-stream` from whichever answer (both, if both do):
+takes `ps -a`, `ps -a -s` (size on disk) and `stats --no-stream` from whichever answer (both, if both do):
 
 - **Per container:** state, image, status ("Up 3 hours (healthy)"), health,
-  published ports, CPU %, memory (used / limit), network in / out per second.
-- **History per running container** (CPU, memory, network) at the same three
+  published ports, CPU % (100% = one core), memory (used / limit), network in /
+  out and disk read / write per second, processes, and disk: what it wrote on
+  top of its image, and the size with the image.
+- **History per running container** (CPU, memory, network, disk I/O,
+  processes) at the same three
   resolutions as the server's, for up to 40 containers per server. The server
   page charts the ten busiest, one line each; click a name to hide it.
-- ***Monitoring → Containers*** lists every container on every monitored
-  server, with filters (running · stopped · unhealthy).
+- ***Monitoring → Containers*** is the usage view: every container on every
+  monitored server with CPU, memory against its limit, disk, network, disk I/O
+  and processes. Click a column to sort (busiest first), filter by server.
+  Open a container for its charts over 1h … 90d (`GetContainerUsage`). Anyone
+  with access to the server can see these.
+- ***Containers → Containers*** is the management view ([CONTAINERS.md](CONTAINERS.md)):
+  shell, files, logs, start / stop.
 - **Admins** can open a container's **logs** (the last 100–2000 lines, with a
   live refresh and download) and **start / stop / restart** it. Both run
   `docker` over SSH as the monitoring account, only for a container timika saw

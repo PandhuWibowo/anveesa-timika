@@ -45,6 +45,7 @@ export const keys = {
   containerFiles: (asset: string, name: string, path: string) => ['docker', 'files', asset, name, path] as const,
   images: (asset: string) => ['docker', 'images', asset] as const,
   volumes: (asset: string) => ['docker', 'volumes', asset] as const,
+  containerUsage: (asset: string, name: string, range: string) => ['monitor', 'container', asset, name, range] as const,
   system: (id: string, range: string) => ['monitor', 'system', id, range] as const,
   repos: ['automation', 'repos'] as const,
   runs: (repo = '') => ['automation', 'runs', repo] as const,

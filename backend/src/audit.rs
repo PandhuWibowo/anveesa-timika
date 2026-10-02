@@ -617,6 +617,7 @@ pub fn routine(action: &str) -> bool {
             | "MonitorService/GetSystem"
             | "MonitorService/GetSettings"
             | "MonitorService/ListContainers"
+            | "MonitorService/GetContainerUsage"
             | "ContainerService/ListImages"
             | "ContainerService/ListVolumes"
             | "ClusterService/Configuration"
