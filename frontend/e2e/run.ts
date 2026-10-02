@@ -19,6 +19,7 @@ import './scenarios/k_mfa'
 import './scenarios/l_automation'
 import './scenarios/m_monitor'
 import './scenarios/n_containers'
+import './scenarios/o_network'
 
 const filters = process.argv.slice(2)
 const selected = filters.length ? scenarios.filter((s) => filters.some((f) => s.id === f || s.cat === f)) : scenarios

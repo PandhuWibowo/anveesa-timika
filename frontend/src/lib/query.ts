@@ -27,10 +27,15 @@ export const queryClient = new QueryClient({
   },
 })
 
+const alsoClear: (() => void)[] = []
+/** Other in-memory state to drop with the cache. */
+export const onClear = (f: () => void) => { alsoClear.push(f) }
+
 /** Forget everything (another person may use this browser next). */
 export function clearCache() {
   queryClient.cancelQueries()
   queryClient.clear()
+  for (const f of alsoClear) f()
 }
 
 /** Query keys, in one place so invalidation can't drift from the queries. */

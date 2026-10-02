@@ -9,6 +9,7 @@ import { AuditService } from '../gen/timika/v1/audit_pb'
 import { AutomationService } from '../gen/timika/v1/automation_pb'
 import { MonitorService } from '../gen/timika/v1/monitor_pb'
 import { ContainerService } from '../gen/timika/v1/containers_pb'
+import { NetService } from '../gen/timika/v1/net_pb'
 import { session, clearToken, markSealed } from './session.svelte'
 
 export { Code, ConnectError }
@@ -40,6 +41,7 @@ export const audit = createClient(AuditService, transport)
 export const automation = createClient(AutomationService, transport)
 export const monitor = createClient(MonitorService, transport)
 export const containerApi = createClient(ContainerService, transport)
+export const netApi = createClient(NetService, transport)
 
 export const isCode = (e: unknown, code: Code) => e instanceof ConnectError && e.code === code
 

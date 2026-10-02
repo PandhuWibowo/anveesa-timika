@@ -3,7 +3,7 @@
   // audited action about it (config, access, tests, refused connections) and
   // who can reach it now.
   import { onMount } from 'svelte'
-  import { ArrowLeft, SquareTerminal, Pencil, ShieldCheck, ShieldAlert, ChevronDown, Loader2, ExternalLink, UserRound, Users, Activity, Search, Play, RefreshCw } from '@lucide/svelte'
+  import { ArrowLeft, SquareTerminal, Pencil, ShieldCheck, ShieldAlert, ChevronDown, Loader2, ExternalLink, UserRound, Users, Activity, Search, Play, RefreshCw, Network } from '@lucide/svelte'
   import { bastion, audit, errMsg, isNetworkError } from '../lib/api'
   import { isAdmin } from '../lib/session.svelte'
   import { navigate } from '../lib/router.svelte'
@@ -164,6 +164,7 @@
                 {/if}
               </div>
             {/if}
+            {#if asset.allowedAccounts.length}<button class="base-btn base-btn--ghost" onclick={() => navigate(`/network/${id}`)} title="Ping, port check, DNS, trace route… from this server"><Network size={14} /> Network</button>{/if}
             {#if admin}<button class="base-btn base-btn--ghost" onclick={() => (editing = true)}><Pencil size={14} /> Edit</button>{/if}
           </div>
         </section>

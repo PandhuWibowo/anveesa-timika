@@ -69,7 +69,7 @@ make redis-sentinel-up / redis-cluster-up   # Redis HA rigs with timika inside
 make stop         # free the dev ports
 make gen          # regenerate frontend/src/gen from proto/ (after editing a .proto)
 make test         # gen + cargo test + svelte-check
-make e2e          # 314 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
+make e2e          # 320 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
 make helm-lint    # lint deploy/helm/timika
 ```
 
@@ -120,11 +120,13 @@ backend/src/
   containers.rs   Docker / Podman over SSH (docs/CONTAINERS.md): command builders (the runtime is
                   only ever `docker` or `podman`; everything else one quoted word), parsers
                   for files / images / volumes, download tickets
+  nettools.rs     network checks from a server (docs/NETWORK.md): ping, port, dns, trace, http, tls,
+                  listen — fixed sh scripts, validated arguments as one quoted word, output parsers
   kv.rs           KV v2 engine: versions, CAS, soft delete, destroy, folder listing
   routes/         plain HTTP only: /v1/sys/health, the /v1/bastion/connect WebSocket,
                   /v1/bastion/files/upload (PUT) and /download (GET, signed link),
                   /v1/automation/hooks/<repo> (push webhooks, HMAC / token), /v1/automation/trigger/<repo> (CI)
-proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation, monitor, containers)
+proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation, monitor, containers, net)
 frontend/src/
   App.svelte      shell (sidebar/topbar/statusbar) or Gate when sealed/uninit/no token
   gen/            generated from proto (`bun run gen`: buf + protoc-gen-es) — don't edit
@@ -141,7 +143,8 @@ frontend/src/
                   RunOptionsForm, ScheduleDialog, NotifySettings), Monitoring / MonitorSystem
                   (+ Chart, RulesEditor, MonitorSettings, ContainerPanel, ContainerLogs), Containers /
                   ContainerDetail (+ ContainerFiles), Images, Volumes,
-                  ContainerUsage (+ ContainerUsageDetail; Monitoring → Containers, #/usage)
+                  ContainerUsage (+ ContainerUsageDetail; Monitoring → Containers, #/usage),
+                  NetTools (Access → Network tools; lib/net.svelte.ts)
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)

@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package timika.v1;
+
+// Network checks — ping, port check, DNS, trace route, HTTP, TLS certificate,
+// listening ports — run *from one of your servers* over SSH, as an account you
+// may use there. Nothing runs on the timika host, and there is no free-form
+// command: the tool is one of a fixed set and every argument is validated.
+service NetService {
+  rpc Run(NetRequest) returns (NetResult);
+}
+
+message NetRequest {
+  // ping · port · dns · trace · http · tls · listen
+  string tool = 1;
+  // The server to run from, and the account (empty = the first you may use).
+  string asset = 2;
+  string account = 3;
+  // A hostname or IP address; for `http` a URL (https:// when no scheme is
+  // given). Not used by `listen`.
+  string target = 4;
+  // `port`: 1–20 ports. `tls`: one port (default 443).
+  repeated uint32 ports = 5;
+  // `dns`: A (default) · AAAA · CNAME · MX · TXT · NS · SOA · PTR · SRV · CAA,
+  // and optionally the resolver to ask.
+  string record = 6;
+  string resolver = 7;
+}
+
+message NetFact {
+  string label = 1;
+  string value = 2;
+  // ok · warn · bad, or empty
+  string level = 3;
+}
+
+message PortResult {
+  uint32 port = 1;
+  // open · closed (refused) · timeout · unresolved · failed
+  string state = 2;
+  optional uint32 ms = 3;
+  string detail = 4;
+}
+
+message DnsRecord {
+  string name = 1;
+  optional uint32 ttl = 2;
+  string type = 3;
+  string value = 4;
+}
+
+message Hop {
+  uint32 n = 1;
+  // Empty when the hop did not answer.
+  string addr = 2;
+  optional double ms = 3;
+}
+
+message Listener {
+  // tcp · udp
+  string proto = 1;
+  string addr = 2;
+  uint32 port = 3;
+  // Empty when the account may not see the owner (not root).
+  string process = 4;
+  optional uint32 pid = 5;
+}
+
+message NetResult {
+  bool ok = 1;
+  // ok · warn · bad
+  string level = 2;
+  // One line: what the check found.
+  string verdict = 3;
+  // The program that ran on the server (ping, bash, nc, dig, host, curl, …).
+  string tool = 4;
+  // Its output, as it came (at most 64 KiB).
+  string output = 5;
+  uint32 took_ms = 6;
+  string source = 7;
+  string account = 8;
+  repeated NetFact facts = 9;
+  repeated PortResult ports = 10;
+  repeated DnsRecord records = 11;
+  repeated Hop hops = 12;
+  repeated Listener listeners = 13;
+}

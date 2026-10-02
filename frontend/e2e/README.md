@@ -1,6 +1,6 @@
 # End-to-end scenarios
 
-`make e2e` (or `cd frontend && bun e2e/run.ts [E | F07 …]`) runs 314 scenarios
+`make e2e` (or `cd frontend && bun e2e/run.ts [E | F07 …]`) runs 320 scenarios
 against real processes: fresh single-node and 3-node Raft vaults on random ports,
 a small SSH server (`backend/examples/ssh_target.rs`) for the bastion, and every
 client the product has — gRPC-Web (the UI's transport), native gRPC over HTTP/2,

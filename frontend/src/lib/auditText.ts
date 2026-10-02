@@ -80,6 +80,7 @@ const LABELS: Record<string, [string, Category]> = {
   'MonitorService/SetSystemAlerts': ['Changed a server\'s alert rules', 'servers'],
   'MonitorService/SaveSettings': ['Changed monitoring alerts & notifications', 'servers'],
   'MonitorService/TestNotifier': ['Sent a test notification', 'servers'],
+  'NetService/Run': ['Ran a network check', 'servers'],
   'ContainerService/InspectContainer': ['Viewed container details', 'servers'],
   'ContainerService/ListFiles': ['Browsed files in a container', 'files'],
   'ContainerService/MakeDir': ['Created a folder in a container', 'files'],

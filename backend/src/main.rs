@@ -6,6 +6,7 @@ mod bastion;
 mod cli;
 mod config;
 mod containers;
+mod nettools;
 mod core;
 mod error;
 mod grpc;

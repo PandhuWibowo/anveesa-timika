@@ -18,6 +18,7 @@ export const CATEGORIES: Record<string, string> = {
   L: 'Infrastructure automation',
   M: 'Monitoring',
   N: 'Containers (Docker / Podman)',
+  O: 'Network tools',
 }
 
 export const scenarios: Scenario[] = []
