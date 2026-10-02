@@ -127,6 +127,7 @@ Defaults: down 2 min; CPU, memory, disk above 90 % for 10 min.
 |---|---|---|---|
 | That server's numbers, charts, alerts | ✓ | ✓ | — |
 | Choose what is monitored, rules, notifications | ✓ | — | — |
+| Container usage (*Monitoring → Containers*) and its history | ✓ | ✓ | — |
 | Container logs, start / stop / restart | ✓ | — | — |
 
 ## Settings
@@ -151,4 +152,5 @@ Defaults: down 2 min; CPU, memory, disk above 90 % for 10 min.
 ## Limits (today)
 
 - Linux only. No GPU, S.M.A.R.T., ZFS or battery numbers yet.
-- No ping / HTTP checks from outside the server.
+- No scheduled ping / HTTP checks with alerts. One-off checks from a server are
+  under *Access → Network tools* ([NETWORK.md](NETWORK.md)).

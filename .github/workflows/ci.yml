@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+      - uses: oven-sh/setup-bun@v2
+      - name: Install frontend dependencies
+        run: cd frontend && bun install --frozen-lockfile
+      - name: Unit tests and type checks
+        run: make test
+      - name: End-to-end scenarios
+        run: make e2e
+      - name: Keep the end-to-end report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: frontend/e2e/REPORT.md
+          if-no-files-found: ignore

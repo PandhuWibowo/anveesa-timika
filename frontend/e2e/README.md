@@ -19,8 +19,9 @@ plain HTTP, the terminal WebSocket and the `timika operator` CLI.
 | `scenarios/i_people_audit.ts` | roles (`ssh`), one-step user + grants, account provisioning (sudo, groups), command log, audit trail filters |
 | `scenarios/j_files.ts` | SFTP browse / upload / download links / rename / delete, archives (compress, extract, stream), hostile names |
 | `scenarios/k_mfa.ts` | TOTP setup, sign-in challenge, replay, recovery codes, required 2FA, admin reset |
-| `scenarios/m_monitor.ts` | agentless monitoring: readings and rates, history ranges, down detection, alert rules + notifications, access, cleanup, restart, containers (history, logs, actions) |
+| `scenarios/m_monitor.ts` | agentless monitoring: readings and rates, history ranges, down detection, alert rules + notifications, access, cleanup, restart, containers (history, logs, actions), container usage (disk I/O, processes, size on disk, per-container history) |
 | `scenarios/n_containers.ts` | Docker and Podman: container details, files in a container (browse, upload, download, folders), images, volumes, admin-only access |
+| `scenarios/o_network.ts` | network tools from a server: ping, port check, DNS, trace route, HTTP timing, TLS certificate, listening ports, missing programs, refused input, access, audit |
 | `scenarios/l_automation.ts` | Git repositories, project detection, runs on a runner (real terraform / ansible when installed), plan → apply once, state in the vault, masking, webhooks, cancel, audit, run options (workspaces, destroy, Ansible on timika's servers), approvals, schedules, notifications, CI trigger, file viewer |
 
 Each run writes `report.md` / `report.json` to its work dir (`$E2E_DIR`, default a

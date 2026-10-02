@@ -94,7 +94,8 @@ backend/src/
   core.rs         init / unseal (Shamir) / seal / rotate / keyring refresh / raft join
   token.rs        token entries, resolve() (expiry, disabled users)
   grpc/           the API: mod.rs (Ctx, who()/Need roles, AppError→Status, router with
-                  tonic-web + grpc.health), sys/kv/auth/bastion/cluster/audit.rs services,
+                  tonic-web + grpc.health), sys/kv/auth/bastion/cluster/audit/automation/monitor/
+                  containers/net.rs services,
                   convert.rs (JSON↔Struct, times), client.rs (node→node + CLI calls)
   seal/           auto-unseal key services: transit (Vault/OpenBao), awskms (SigV4 +
                   credential chain), static; AutoSeal::wrap/unwrap
@@ -175,6 +176,9 @@ scripts/raft-dev.sh   local 3-node cluster
 - New API: add the RPC to the `.proto`, implement it in `grpc/<service>.rs` starting
   with `self.who(&req, Need::…)` (or `self.public()`), return `reply(msg, &me)` so the
   audit log knows the caller, then `bun run gen` for the UI. Don't add REST routes.
+- Commands sent to a server (`containers.rs`, `nettools.rs`, `bastion/archive.rs`) are built from
+  fixed templates: validate each value, pass it as one `q()`-quoted word, bound the run (timeout,
+  output size). Never a user-supplied command line, and nothing of this runs on the timika host.
 - New backend features must work on **both** storage backends (`storage/mod.rs`).
 - Frontend: reuse the `.page-*` / `.base-*` / `.badge--*` / `.notice--*` classes in
   `style.css`; don't invent new component CSS. Svelte 5 runes only.
@@ -194,5 +198,6 @@ Policies (path ACLs) + non-root tokens with TTL · rekey (new shares) ·
 snapshot **restore** endpoint · autopilot (dead-server cleanup) · GCP/Azure KMS seals ·
 seal migration back to Shamir / between KMSs · more secret engines (transit, dynamic DB creds) ·
 bastion: command capture for multi-line pastes, in-browser file editor, folder upload ·
+network tools: saved checks with alerts, account picker ·
 infrastructure: container / Kubernetes runners, Terragrunt + script projects, workflows (chained
 projects), IANA time zones, Crossplane / Kubernetes manifests, GitHub App instead of tokens / deploy keys.

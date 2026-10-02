@@ -1,5 +1,8 @@
 # anveesa-timika
 
+[![CI](https://github.com/PandhuWibowo/anveesa-timika/actions/workflows/ci.yml/badge.svg)](https://github.com/PandhuWibowo/anveesa-timika/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A **vault and bastion** in one: a Rust encryption barrier holds everything —
 server credentials, session recordings, users — in front of pluggable storage
 (**integrated Raft** with no external database, or **Redis** standalone /
@@ -189,6 +192,22 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 - [`docs/SCALING.md`](docs/SCALING.md): running N replicas on plain Docker, Swarm or Kubernetes, with concurrency, unseal-all, seal-all and routing.
 - [`docs/REDIS.md`](docs/REDIS.md): Redis standalone, Sentinel and Cluster, with key layout, WAIT durability and failover.
 - [`docs/RAFT.md`](docs/RAFT.md): integrated Raft covering the join protocol, operations, and deploying on Kubernetes and on VMs.
+
+## Project status
+
+timika is open source and pre-1.0: it works and is covered by 320 end-to-end
+scenarios, but it has **not had an independent security audit** and the API may
+still change. Evaluate it before trusting it with production secrets.
+
+## Contributing
+
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md)
+and the [code of conduct](CODE_OF_CONDUCT.md). Found a security problem? Please
+report it privately: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © Pandhu Wibowo
 
 ## Stack
 

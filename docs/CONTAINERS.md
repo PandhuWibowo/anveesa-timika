@@ -21,8 +21,9 @@ and volume is tagged `docker` or `podman` (shown as a small badge), and every
 action on it uses that command. A server with both shows both. Where `docker`
 is Podman's compatibility shim, it is counted once, as Podman. With rootless
 Podman you see the containers of the monitoring account's own user.
-History charts per container are on the server's Monitoring page
-([MONITORING.md](MONITORING.md#containers-docker)).
+What each container uses (CPU, memory, disk, network, disk I/O, processes) and
+its history are under *Monitoring → Containers*; a container's **Usage** button
+opens it ([MONITORING.md](MONITORING.md#containers-docker-and-podman)).
 
 ## A container
 

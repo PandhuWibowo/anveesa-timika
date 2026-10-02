@@ -8,13 +8,15 @@ recorded. This guide covers the **Access** section of the UI and how it works.
 |---|---|
 | **Servers** | Every server you may use. One click opens a terminal. Admins add and edit servers. |
 | **Terminal** | Your open terminal tabs. They keep running while you use other pages. |
+| **Network tools** | Ping, port check, DNS, trace route, HTTP and TLS checks, run from a server you may use ([NETWORK.md](NETWORK.md)). |
 | **Sessions** | Every recorded terminal session: replay it, download it, end it. |
 | **People** | Who can sign in, their role, 2FA, and which servers they reach (admins). |
 | **Audit trail** | Who did what, when, from where — tamper-evident (admins). |
 | **My account** | Your password and two-factor authentication (click your name, top right). |
 
 Each server also has its own page (click its name): **Commands**, **Files**,
-**Sessions**, **Activity** and **Who has access**.
+**Sessions**, **Activity** and **Who has access**. Its **Network** button opens the
+network tools with that server chosen.
 
 ---
 

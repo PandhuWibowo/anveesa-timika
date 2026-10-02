@@ -10,6 +10,11 @@ frontend/.vite
 
 # Env & secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+UNSEAL-KEYS.txt
 *.local
 timika-init.json
 
