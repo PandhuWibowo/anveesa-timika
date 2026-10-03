@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// nginx on your monitored servers — on the server itself or inside a container
+// (Docker / Podman). Sites, config files with a safe apply (write → `nginx -t`
+// → reload, or put the old file back), version history in the vault,
+// certificates and logs. Runs over SSH as the server's monitoring account
+// (root, or passwordless sudo, for nginx on the server itself). Admin only.
+service NginxService {
+  // Every nginx found by the last monitoring reading. No SSH: instant.
+  rpc ListInstances(google.protobuf.Empty) returns (ListNginxResponse);
+  // One nginx: its state, sites, config files, certificates and log files.
+  rpc GetInstance(NginxRef) returns (NginxInstance);
+  rpc ReadFile(NginxPath) returns (NginxFile);
+  // Write a config file, test, reload. When the test fails the previous file
+  // is put back and `ok` is false.
+  rpc SaveFile(SaveNginxFile) returns (NginxApply);
+  // Switch a site on or off (sites-enabled link, or `.disabled`), test, reload.
+  rpc SetEnabled(SetNginxEnabled) returns (NginxApply);
+  rpc DeleteFile(NginxPath) returns (NginxApply);
+  // Test the configuration and, when it is fine, reload.
+  rpc Reload(NginxRef) returns (NginxApply);
+  // Earlier versions of a file, newest first, and one of them.
+  rpc ListVersions(NginxPath) returns (NginxVersions);
+  rpc GetVersion(NginxVersionRef) returns (NginxFile);
+  // The last lines of one of this nginx's log files.
+  rpc ReadLog(NginxLogRequest) returns (NginxLog);
+}
+
+message NginxRef {
+  string asset = 1;
+  // Empty = nginx on the server itself.
+  string container = 2;
+}
+
+message NginxSummary {
+  string asset = 1;
+  string system = 2;
+  string container = 3;
+  // docker · podman, for a container
+  string runtime = 4;
+  // Empty when not known yet (containers: after opening it).
+  string version = 5;
+  bool running = 6;
+  string image = 7;
+}
+
+message ListNginxResponse {
+  repeated NginxSummary instances = 1;
+  // Monitored servers in total (to explain an empty list).
+  uint32 monitored = 2;
+}
+
+message NginxSite {
+  // server_name values ("_" = catch-all); empty for a stream server.
+  repeated string names = 1;
+  // As written: "80", "443 ssl", "[::]:443 ssl http2".
+  repeated string listens = 2;
+  bool tls = 3;
+  // proxy · static · redirect · stream · other
+  string kind = 4;
+  // proxy: upstreams · static: the root · redirect: where to
+  repeated string targets = 5;
+  // The file to edit and the line of its `server {`.
+  string file = 6;
+  uint32 line = 7;
+  bool enabled = 8;
+  repeated string certificates = 9;
+  repeated string logs = 10;
+  // proxy / stream: where it forwards, as host:port (upstreams resolved).
+  repeated string backends = 11;
+}
+
+message NginxConfFile {
+  string path = 1;
+  // Part of the running configuration.
+  bool loaded = 2;
+  // Can be switched on / off: lives in sites-available, or is a conf.d file.
+  bool switchable = 3;
+  bool enabled = 4;
+}
+
+message NginxCert {
+  string path = 1;
+  string subject = 2;
+  string issuer = 3;
+  // RFC 3339; empty when it could not be read.
+  string not_after = 4;
+  optional int32 days_left = 5;
+  string error = 6;
+  // server names of the sites that use it
+  repeated string used_by = 7;
+}
+
+message NginxInstance {
+  string system = 1;
+  string version = 2;
+  bool running = 3;
+  // /etc/nginx/nginx.conf
+  string conf_path = 4;
+  bool test_ok = 5;
+  string test_output = 6;
+  repeated NginxSite sites = 7;
+  repeated NginxConfFile files = 8;
+  repeated NginxCert certificates = 9;
+  repeated string logs = 10;
+  // Where a new site goes: …/sites-available or …/conf.d.
+  string sites_dir = 11;
+  string runtime = 12;
+}
+
+message NginxPath {
+  string asset = 1;
+  string container = 2;
+  string path = 3;
+}
+
+message NginxFile {
+  string path = 1;
+  string content = 2;
+  // Identifies this content; send it back with SaveFile.
+  string rev = 3;
+  uint32 versions = 4;
+}
+
+message SaveNginxFile {
+  string asset = 1;
+  string container = 2;
+  string path = 3;
+  string content = 4;
+  // The `rev` you loaded; empty = a new file (refused when it exists).
+  string rev = 5;
+  // A new site in sites-available: switch it on as well.
+  bool enable = 6;
+  string note = 7;
+}
+
+message SetNginxEnabled {
+  string asset = 1;
+  string container = 2;
+  string path = 3;
+  bool enabled = 4;
+}
+
+message NginxApply {
+  // false: the test failed and nothing changed.
+  bool ok = 1;
+  string test_output = 2;
+  bool reloaded = 3;
+  string reload_output = 4;
+  string rev = 5;
+  // The file's path afterwards (enable / disable may rename it).
+  string path = 6;
+}
+
+message NginxVersion {
+  // Unix milliseconds.
+  int64 id = 1;
+  string at = 2;
+  string by = 3;
+  string note = 4;
+  uint32 size = 5;
+}
+
+message NginxVersions {
+  repeated NginxVersion versions = 1;
+}
+
+message NginxVersionRef {
+  string asset = 1;
+  string container = 2;
+  string path = 3;
+  int64 id = 4;
+}
+
+message NginxLogRequest {
+  string asset = 1;
+  string container = 2;
+  string path = 3;
+  // Lines from the end (default 200, at most 2000).
+  uint32 tail = 4;
+}
+
+message NginxLog {
+  string text = 1;
+  // The file is the container's output (stdout / stderr): read the container's logs.
+  bool container_output = 2;
+}

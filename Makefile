@@ -52,7 +52,7 @@ test: gen
 	cd backend && cargo test
 	cd frontend && bun run check
 
-# 320 end-to-end scenarios against real processes (fresh Raft nodes, an SSH test
+# 333 end-to-end scenarios against real processes (fresh Raft nodes, an SSH test
 # target, gRPC / gRPC-Web / HTTP / WebSocket / CLI). Report: frontend/e2e/REPORT.md.
 # Filter: make e2e ONLY="E F07"
 e2e:

@@ -38,6 +38,15 @@ for f in /sys/class/thermal/thermal_zone*/temp /sys/class/hwmon/hwmon*/temp*_inp
 done
 [ -n "$t" ] && echo "temp=$t"
 df -kP 2>/dev/null | awk 'NR > 1 { print "disk=" $1 "|" $6 "|" $2 "|" $3 }'
+# The network, for the map: this server's addresses, what listens, and every
+# open TCP connection with the process that holds it.
+LA='$1 ~ /^(tcp|udp)/ { l = ""; for (i = 2; i <= NF; i++) if ($i ~ /:[0-9]+$/) { l = $i; break } q = ""; if (match($0, /users:\(\("[^"]+"/)) q = substr($0, RSTART + 9, RLENGTH - 10); if (l != "") print "lsn=" substr($1, 1, 3) "|" l "|" q }'
+CA='{ l = ""; p = ""; for (i = 1; i <= NF; i++) if ($i ~ /:[0-9]+$/) { if (l == "") l = $i; else if (p == "") p = $i } q = ""; if (match($0, /users:\(\("[^"]+"/)) q = substr($0, RSTART + 9, RLENGTH - 10); if (p != "") print K "=" O "|" l "|" p "|" q }'
+ip -o addr show scope global 2>/dev/null | awk '{ split($4, a, "/"); print "ip=" a[1] }'
+if command -v ss >/dev/null 2>&1; then
+  ss -tulnp 2>/dev/null | awk "$LA" | sort -u | head -n 300
+  ss -tnp state established 2>/dev/null | awk -v K=con -v O= "$CA" | head -n 3000
+fi
 # Containers: docker and / or podman (the same questions to each). A stuck
 # daemon must not make the whole reading time out.
 T=; command -v timeout >/dev/null 2>&1 && T="timeout 8"
@@ -51,9 +60,31 @@ for RT in docker podman; do
   # Podman spells the process count PIDS.
   P=PIDs; [ $RT = podman ] && P=PIDS
   ($T $RT stats --no-stream --format "cst={{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.$P}}" 2>/dev/null) || true
+  # Their addresses, and (as root) the connections inside each one's network.
+  ids=$($T $RT ps -q 2>/dev/null | head -n 40)
+  if [ -n "$ids" ]; then
+    cin=$($T $RT inspect --format 'cin={{.Name}}|{{.State.Pid}}|{{range $k, $v := .NetworkSettings.Networks}}{{$k}}={{$v.IPAddress}},{{end}}|{{index .Config.Labels "com.docker.compose.project"}}' $ids 2>/dev/null)
+    printf '%s\n' "$cin"
+    if [ "$(id -u)" = 0 ] && command -v nsenter >/dev/null 2>&1 && command -v ss >/dev/null 2>&1; then
+      echo "deep=1"
+      printf '%s\n' "$cin" | while IFS='|' read -r n pid nets rest; do
+        n=${n#cin=}; n=${n#/}
+        case "$nets" in host=*|*,host=*) continue ;; esac
+        [ "$pid" -gt 0 ] 2>/dev/null || continue
+        $T nsenter -t "$pid" -n ss -tln 2>/dev/null | awk -v O="$n" '{ for (i = 1; i <= NF; i++) if ($i ~ /:[0-9]+$/) { print "cls=" O "|" $i; break } }' | sort -u | head -n 50
+        $T nsenter -t "$pid" -n ss -tn state established 2>/dev/null | awk -v K=ccn -v O="$n" "$CA" | head -n 500
+      done
+    fi
+  fi
   # Size on disk (slower: best effort, on its own).
   ($T $RT ps -a -s --format 'csz={{.Names}}|{{.Size}}' 2>/dev/null) || true
 done
+# nginx on the server itself (the Nginx page lists it; containers come from `ctr`).
+NGX=$(PATH="$PATH:/usr/sbin:/usr/local/sbin:/sbin:/usr/local/nginx/sbin" command -v nginx 2>/dev/null)
+if [ -n "$NGX" ]; then
+  R=0; pgrep -x nginx >/dev/null 2>&1 && R=1
+  echo "ngx=$("$NGX" -v 2>&1 | sed -n 's/.*nginx\///p' | head -n 1)|$R"
+fi
 if command -v systemctl >/dev/null 2>&1; then
   $T systemctl --failed --no-legend --plain 2>/dev/null | awk '$1 != "" { print "unit=" $1 }'
 fi
@@ -147,6 +178,14 @@ pub struct Raw {
     /// The container runtimes that answered (docker, podman).
     pub runtimes: Vec<String>,
     pub failed_units: Vec<String>,
+    /// nginx on the server itself: (version, running).
+    pub nginx: Option<(String, bool)>,
+    /// Addresses, listeners and open connections (for the map).
+    pub network: crate::topology::NetRaw,
+    /// What nginx is configured to forward to; read every few minutes.
+    pub routes: Option<Vec<crate::topology::Route>>,
+    /// Where the server is (its cloud, gateway, a reachable cluster); read with the routes.
+    pub env: Option<crate::topology::Env>,
 }
 
 /// Docker's own rule for names, so a name is always safe as one shell word.
@@ -312,6 +351,11 @@ pub fn parse(out: &str) -> Result<Raw, String> {
                 if r.failed_units.len() < 50 {
                     r.failed_units.push(v.chars().take(100).collect());
                 }
+            }
+            "ip" | "lsn" | "con" | "cin" | "cls" | "ccn" | "deep" => r.network.line(k, v),
+            "ngx" => {
+                let (ver, run) = v.split_once('|').unwrap_or((v, "0"));
+                r.nginx = Some((ver.trim().chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')).take(40).collect(), run == "1"));
             }
             "end" => complete = true,
             _ => {}

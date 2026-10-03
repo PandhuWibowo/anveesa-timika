@@ -181,6 +181,7 @@ dependencies = [
  "redb",
  "redis",
  "reqwest",
+ "ring",
  "rpassword",
  "russh",
  "russh-sftp",

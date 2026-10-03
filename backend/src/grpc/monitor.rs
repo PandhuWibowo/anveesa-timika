@@ -351,6 +351,79 @@ impl MonitorService for Ctx {
         ))
     }
 
+    async fn get_map(&self, req: Request<pb::MapRequest>) -> Reply<pb::NetworkMap> {
+        let (me, _) = self.who(&req, Need::Bastion).await?;
+        let core = &self.st.core;
+        let back = match req.get_ref().range.as_str() {
+            "1h" => 3600,
+            "" | "24h" => 86400,
+            "7d" => 7 * 86400,
+            "30d" => 30 * 86400,
+            other => return Err(AppError::BadRequest(format!("unknown range `{other}` (1h · 24h · 7d · 30d)")).into()),
+        };
+        let cfgs = mon::systems(core).await?;
+        let mut inputs = Vec::new();
+        for a in bastion::list_assets(core).await? {
+            if !cfgs.iter().any(|c| c.asset == a.id) || !self.can_see(&me, &a).await? {
+                continue;
+            }
+            let rec: LatestRec = core.get_json(&mon::latest_path(&a.id)).await?.unwrap_or_else(LatestRec::pending);
+            let topo = core.get_json(&crate::topology::path(&a.id)).await?.unwrap_or_default();
+            inputs.push(crate::topology::Input { asset: a, topo, containers: rec.containers, status: rec.status });
+        }
+        // Clusters and cloud accounts describe the whole estate: administrators only.
+        // Cloud accounts only when the map is detected with their APIs.
+        let method = crate::sources::method(core).await?;
+        let mut sources = Vec::new();
+        let mut failed = Vec::new();
+        let all = crate::sources::all(core).await?;
+        if me.is_admin() {
+            for s in all.iter().filter(|s| method == "api" || !crate::sources::is_cloud(&s.kind)).cloned() {
+                let st = crate::sources::state(core, &s.id).await?;
+                if !st.error.is_empty() {
+                    failed.push(format!("{}: the last reading failed — {}", s.name, st.error));
+                }
+                sources.push((s, st.inventory));
+            }
+        }
+        // The clouds the servers say they run in: what Cloud API would connect to.
+        let mut detected: Vec<pb::DetectedCloud> = Vec::new();
+        for i in &inputs {
+            let Some(c) = i.topo.env.as_ref().and_then(|e| e.cloud.as_ref()) else { continue };
+            let pos = detected.iter().position(|d| d.provider == c.provider).unwrap_or_else(|| {
+                detected.push(pb::DetectedCloud { provider: c.provider.clone(), connected: all.iter().any(|s| s.kind == c.provider), ..Default::default() });
+                detected.len() - 1
+            });
+            let d = &mut detected[pos];
+            if !c.region.is_empty() && !d.regions.contains(&c.region) {
+                d.regions.push(c.region.clone());
+            }
+            d.servers.push(i.asset.name.clone());
+        }
+        let mut map = crate::topology::build_with(&inputs, &sources, Utc::now().timestamp() - back);
+        map.notes.extend(failed);
+        map.method = method;
+        map.detected = detected;
+        Ok(reply(map, &me))
+    }
+
+    async fn set_map_method(&self, req: Request<pb::MapMethod>) -> Reply<pb::MapMethod> {
+        let (me, _) = self.who(&req, Need::Admin).await?;
+        let m = req.get_ref().method.clone();
+        crate::audit::target(format!("map detection: {m}"));
+        crate::sources::set_method(&self.st.core, &m).await?;
+        // Switching on: read the cloud accounts now rather than in five minutes.
+        if m == "api" {
+            let core = self.st.core.clone();
+            tokio::spawn(async move {
+                for s in crate::sources::all(&core).await.unwrap_or_default().into_iter().filter(|s| crate::sources::is_cloud(&s.kind)) {
+                    let _ = crate::sources::refresh(&core, &s).await;
+                }
+            });
+        }
+        Ok(reply(pb::MapMethod { method: m }, &me))
+    }
+
     async fn container_logs(&self, req: Request<pb::ContainerLogsRequest>) -> Reply<pb::ContainerLogsResponse> {
         let (me, _) = self.who(&req, Need::Admin).await?;
         let r = req.into_inner();

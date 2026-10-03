@@ -14,7 +14,373 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file timika/v1/monitor.proto.
  */
 export const file_timika_v1_monitor: GenFile = /*@__PURE__*/
-  fileDesc("Chd0aW1pa2EvdjEvbW9uaXRvci5wcm90bxIJdGltaWthLnYxIkMKFUNvbnRhaW5lclVzYWdlUmVxdWVzdBINCgVhc3NldBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBXJhbmdlGAMgASgJIqUBCg5Db250YWluZXJVc2FnZRIOCgZzeXN0ZW0YASABKAkSLAoJY29udGFpbmVyGAIgASgLMhQudGltaWthLnYxLkNvbnRhaW5lckgAiAEBEg0KBXRpbWVzGAMgAygDEioKBnNlcmllcxgEIAEoCzIaLnRpbWlrYS52MS5Db250YWluZXJTZXJpZXMSDAoEc3RlcBgFIAEoDUIMCgpfY29udGFpbmVyIlYKDENvbnRhaW5lclJvdxINCgVhc3NldBgBIAEoCRIOCgZzeXN0ZW0YAiABKAkSJwoJY29udGFpbmVyGAMgASgLMhQudGltaWthLnYxLkNvbnRhaW5lciJFChZMaXN0Q29udGFpbmVyc1Jlc3BvbnNlEisKCmNvbnRhaW5lcnMYASADKAsyFy50aW1pa2EudjEuQ29udGFpbmVyUm93IkEKFENvbnRhaW5lckxvZ3NSZXF1ZXN0Eg0KBWFzc2V0GAEgASgJEgwKBG5hbWUYAiABKAkSDAoEdGFpbBgDIAEoDSI4ChVDb250YWluZXJMb2dzUmVzcG9uc2USDAoEdGV4dBgBIAEoCRIRCgl0cnVuY2F0ZWQYAiABKAgiRQoWQ29udGFpbmVyQWN0aW9uUmVxdWVzdBINCgVhc3NldBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmFjdGlvbhgDIAEoCSI1ChdDb250YWluZXJBY3Rpb25SZXNwb25zZRIKCgJvaxgBIAEoCBIOCgZvdXRwdXQYAiABKAkiggEKD0NvbnRhaW5lclNlcmllcxIMCgRuYW1lGAEgASgJEgsKA2NwdRgCIAMoARILCgNtZW0YAyADKAESCgoCcngYBCADKAESCgoCdHgYBSADKAESDwoHaW9fcmVhZBgGIAMoARIQCghpb193cml0ZRgHIAMoARIMCgRwaWRzGAggAygBIokECgZMYXRlc3QSEAoDY3B1GAEgASgBSACIAQESEAoDbWVtGAIgASgBSAGIAQESEAoIbWVtX3VzZWQYAyABKAQSEQoJbWVtX3RvdGFsGAQgASgEEhEKBHN3YXAYBSABKAFIAogBARIRCgRkaXNrGAYgASgBSAOIAQESEQoJZGlza191c2VkGAcgASgEEhIKCmRpc2tfdG90YWwYCCABKAQSDwoCcngYCSABKAFIBIgBARIPCgJ0eBgKIAEoAUgFiAEBEhIKBWxvYWQxGAsgASgBSAaIAQESEgoFbG9hZDUYDCABKAFIB4gBARITCgZsb2FkMTUYDSABKAFICIgBARIRCgR0ZW1wGA4gASgBSAmIAQESFAoHaW9fcmVhZBgPIAEoAUgKiAEBEhUKCGlvX3dyaXRlGBAgASgBSAuIAQESDgoGdXB0aW1lGBEgASgEEgoKAm9zGBIgASgJEg4KBmtlcm5lbBgTIAEoCRIRCgljcHVfbW9kZWwYFCABKAkSDAoEY3B1cxgVIAEoDRIMCgR0aW1lGBYgASgJQgYKBF9jcHVCBgoEX21lbUIHCgVfc3dhcEIHCgVfZGlza0IFCgNfcnhCBQoDX3R4QggKBl9sb2FkMUIICgZfbG9hZDVCCQoHX2xvYWQxNUIHCgVfdGVtcEIKCghfaW9fcmVhZEILCglfaW9fd3JpdGUiQgoERGlzaxIOCgZkZXZpY2UYASABKAkSDQoFbW91bnQYAiABKAkSDQoFdG90YWwYAyABKAQSDAoEdXNlZBgEIAEoBCLoAgoJQ29udGFpbmVyEgwKBG5hbWUYASABKAkSDQoFc3RhdGUYAiABKAkSEAoDY3B1GAMgASgBSACIAQESCwoDbWVtGAQgASgEEg0KBWltYWdlGAUgASgJEg4KBnN0YXR1cxgGIAEoCRINCgVwb3J0cxgHIAEoCRIOCgZoZWFsdGgYCCABKAkSEQoJbWVtX2xpbWl0GAkgASgEEg8KAnJ4GAogASgBSAGIAQESDwoCdHgYCyABKAFIAogBARIPCgdydW50aW1lGAwgASgJEhQKB2lvX3JlYWQYDSABKAFIA4gBARIVCghpb193cml0ZRgOIAEoAUgEiAEBEhEKBHBpZHMYDyABKA1IBYgBARIPCgdzaXplX3J3GBAgASgEEhIKCnNpemVfdG90YWwYESABKARCBgoEX2NwdUIFCgNfcnhCBQoDX3R4QgoKCF9pb19yZWFkQgsKCV9pb193cml0ZUIHCgVfcGlkcyI/CglBbGVydFJ1bGUSDgoGbWV0cmljGAEgASgJEhEKCXRocmVzaG9sZBgCIAEoARIPCgdtaW51dGVzGAMgASgNIkUKBkZpcmluZxIOCgZtZXRyaWMYASABKAkSDQoFc2luY2UYAiABKAkSEgoFdmFsdWUYAyABKAFIAIgBAUIICgZfdmFsdWUipQMKBlN5c3RlbRINCgVhc3NldBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBGhvc3QYAyABKAkSDAoEdGFncxgEIAMoCRIPCgdhY2NvdW50GAUgASgJEg4KBnN0YXR1cxgGIAEoCRISCgVzaW5jZRgHIAEoCUgAiAEBEhIKBWVycm9yGAggASgJSAGIAQESJgoGbGF0ZXN0GAkgASgLMhEudGltaWthLnYxLkxhdGVzdEgCiAEBEg0KBXNwYXJrGAogAygBEiEKBmZpcmluZxgLIAMoCzIRLnRpbWlrYS52MS5GaXJpbmcSGgoSY29udGFpbmVyc19ydW5uaW5nGAwgASgNEhgKEGNvbnRhaW5lcnNfdG90YWwYDSABKA0SFAoMZmFpbGVkX3VuaXRzGA4gASgNEhcKCmxhc3RfZXJyb3IYDyABKAlIA4gBARIaCg1sYXN0X2Vycm9yX2F0GBAgASgJSASIAQFCCAoGX3NpbmNlQggKBl9lcnJvckIJCgdfbGF0ZXN0Qg0KC19sYXN0X2Vycm9yQhAKDl9sYXN0X2Vycm9yX2F0IlYKCUF2YWlsYWJsZRINCgVhc3NldBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBGhvc3QYAyABKAkSDAoEdGFncxgEIAMoCRIQCghhY2NvdW50cxgFIAMoCSJ0ChNMaXN0U3lzdGVtc1Jlc3BvbnNlEiIKB3N5c3RlbXMYASADKAsyES50aW1pa2EudjEuU3lzdGVtEicKCWF2YWlsYWJsZRgCIAMoCzIULnRpbWlrYS52MS5BdmFpbGFibGUSEAoIaW50ZXJ2YWwYAyABKA0iMAoQR2V0U3lzdGVtUmVxdWVzdBINCgVhc3NldBgBIAEoCRINCgVyYW5nZRgCIAEoCSIoCgZTZXJpZXMSDgoGbWV0cmljGAEgASgJEg4KBnZhbHVlcxgCIAMoASLIAgoMU3lzdGVtRGV0YWlsEiEKBnN5c3RlbRgBIAEoCzIRLnRpbWlrYS52MS5TeXN0ZW0SHgoFZGlza3MYAiADKAsyDy50aW1pa2EudjEuRGlzaxIoCgpjb250YWluZXJzGAMgAygLMhQudGltaWthLnYxLkNvbnRhaW5lchIZChFmYWlsZWRfdW5pdF9uYW1lcxgEIAMoCRIjCgVydWxlcxgFIAMoCzIULnRpbWlrYS52MS5BbGVydFJ1bGUSFQoNZGVmYXVsdF9ydWxlcxgGIAEoCBINCgV0aW1lcxgHIAMoAxIhCgZzZXJpZXMYCCADKAsyES50aW1pa2EudjEuU2VyaWVzEgwKBHN0ZXAYCSABKA0SNAoQY29udGFpbmVyX3NlcmllcxgKIAMoCzIaLnRpbWlrYS52MS5Db250YWluZXJTZXJpZXMiSAoUU2V0TW9uaXRvcmluZ1JlcXVlc3QSDgoGYXNzZXRzGAEgAygJEg8KB2VuYWJsZWQYAiABKAgSDwoHYWNjb3VudBgDIAEoCSJYCgxTeXN0ZW1BbGVydHMSDQoFYXNzZXQYASABKAkSFAoMdXNlX2RlZmF1bHRzGAIgASgIEiMKBXJ1bGVzGAMgAygLMhQudGltaWthLnYxLkFsZXJ0UnVsZSJzCg9Nb25pdG9yU2V0dGluZ3MSJgoIZGVmYXVsdHMYASADKAsyFC50aW1pa2EudjEuQWxlcnRSdWxlEiYKCW5vdGlmaWVycxgCIAMoCzITLnRpbWlrYS52MS5Ob3RpZmllchIQCghpbnRlcnZhbBgDIAEoDSJqChNTYXZlTW9uaXRvclNldHRpbmdzEiYKCGRlZmF1bHRzGAEgAygLMhQudGltaWthLnYxLkFsZXJ0UnVsZRIrCglub3RpZmllcnMYAiADKAsyGC50aW1pa2EudjEuTm90aWZpZXJJbnB1dCJAChJNb25pdG9yVGVzdFJlcXVlc3QSKgoIbm90aWZpZXIYASABKAsyGC50aW1pa2EudjEuTm90aWZpZXJJbnB1dDLUBgoOTW9uaXRvclNlcnZpY2USRQoLTGlzdFN5c3RlbXMSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaHi50aW1pa2EudjEuTGlzdFN5c3RlbXNSZXNwb25zZRJBCglHZXRTeXN0ZW0SGy50aW1pa2EudjEuR2V0U3lzdGVtUmVxdWVzdBoXLnRpbWlrYS52MS5TeXN0ZW1EZXRhaWwSSAoNU2V0TW9uaXRvcmluZxIfLnRpbWlrYS52MS5TZXRNb25pdG9yaW5nUmVxdWVzdBoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJCCg9TZXRTeXN0ZW1BbGVydHMSFy50aW1pa2EudjEuU3lzdGVtQWxlcnRzGhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5EkEKC0dldFNldHRpbmdzEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GhoudGltaWthLnYxLk1vbml0b3JTZXR0aW5ncxJKCgxTYXZlU2V0dGluZ3MSHi50aW1pa2EudjEuU2F2ZU1vbml0b3JTZXR0aW5ncxoaLnRpbWlrYS52MS5Nb25pdG9yU2V0dGluZ3MSTgoMVGVzdE5vdGlmaWVyEh0udGltaWthLnYxLk1vbml0b3JUZXN0UmVxdWVzdBofLnRpbWlrYS52MS5UZXN0Tm90aWZpZXJSZXNwb25zZRJLCg5MaXN0Q29udGFpbmVycxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRohLnRpbWlrYS52MS5MaXN0Q29udGFpbmVyc1Jlc3BvbnNlElIKDUNvbnRhaW5lckxvZ3MSHy50aW1pa2EudjEuQ29udGFpbmVyTG9nc1JlcXVlc3QaIC50aW1pa2EudjEuQ29udGFpbmVyTG9nc1Jlc3BvbnNlElgKD0NvbnRhaW5lckFjdGlvbhIhLnRpbWlrYS52MS5Db250YWluZXJBY3Rpb25SZXF1ZXN0GiIudGltaWthLnYxLkNvbnRhaW5lckFjdGlvblJlc3BvbnNlElAKEUdldENvbnRhaW5lclVzYWdlEiAudGltaWthLnYxLkNvbnRhaW5lclVzYWdlUmVxdWVzdBoZLnRpbWlrYS52MS5Db250YWluZXJVc2FnZWIGcHJvdG8z", [file_google_protobuf_empty, file_timika_v1_automation]);
+  fileDesc("Chd0aW1pa2EvdjEvbW9uaXRvci5wcm90bxIJdGltaWthLnYxIhsKCU1hcE1ldGhvZBIOCgZtZXRob2QYASABKAkiVgoNRGV0ZWN0ZWRDbG91ZBIQCghwcm92aWRlchgBIAEoCRIPCgdyZWdpb25zGAIgAygJEg8KB3NlcnZlcnMYAyADKAkSEQoJY29ubmVjdGVkGAQgASgIIhsKCk1hcFJlcXVlc3QSDQoFcmFuZ2UYASABKAkiQwoHTWFwUG9ydBIMCgRwb3J0GAEgASgNEg0KBXByb3RvGAIgASgJEgwKBGJpbmQYAyABKAkSDQoFbG9jYWwYBCABKAgi9AEKB01hcE5vZGUSCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRINCgVsYWJlbBgDIAEoCRINCgVhc3NldBgEIAEoCRIOCgZzZXJ2ZXIYBSABKAkSDgoGZGV0YWlsGAYgASgJEhEKCWFkZHJlc3NlcxgHIAMoCRIhCgVwb3J0cxgIIAMoCzISLnRpbWlrYS52MS5NYXBQb3J0Eg0KBXN0YXRlGAkgASgJEg8KB3Byb2plY3QYCiABKAkSDgoGcHVibGljGAsgASgIEg0KBWdyb3VwGAwgASgJEg0KBWF0dHJzGA0gAygJEg0KBXNjb3BlGA4gASgJIoECCgdNYXBFZGdlEgwKBGZyb20YASABKAkSCgoCdG8YAiABKAkSDAoEcG9ydBgDIAEoDRIQCghvYnNlcnZlZBgEIAEoCBIQCghkZWNsYXJlZBgFIAEoCBIUCgxmcm9tX3Byb2Nlc3MYBiABKAkSEgoKdG9fcHJvY2VzcxgHIAEoCRISCgpmaXJzdF9zZWVuGAggASgJEhEKCWxhc3Rfc2VlbhgJIAEoCRIMCgRzZWVuGAogASgNEgwKBHBlYWsYCyABKA0SDAoEbm90ZRgMIAEoCRINCgVzaXRlcxgNIAMoCRILCgN0bHMYDiABKAgSEwoLZGVjbGFyZWRfYnkYDyABKAkiswEKCk5ldHdvcmtNYXASIQoFbm9kZXMYASADKAsyEi50aW1pa2EudjEuTWFwTm9kZRIhCgVlZGdlcxgCIAMoCzISLnRpbWlrYS52MS5NYXBFZGdlEhQKDGNvbGxlY3RlZF9hdBgDIAEoCRINCgVub3RlcxgEIAMoCRIOCgZtZXRob2QYBSABKAkSKgoIZGV0ZWN0ZWQYBiADKAsyGC50aW1pa2EudjEuRGV0ZWN0ZWRDbG91ZCJDChVDb250YWluZXJVc2FnZVJlcXVlc3QSDQoFYXNzZXQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVyYW5nZRgDIAEoCSKlAQoOQ29udGFpbmVyVXNhZ2USDgoGc3lzdGVtGAEgASgJEiwKCWNvbnRhaW5lchgCIAEoCzIULnRpbWlrYS52MS5Db250YWluZXJIAIgBARINCgV0aW1lcxgDIAMoAxIqCgZzZXJpZXMYBCABKAsyGi50aW1pa2EudjEuQ29udGFpbmVyU2VyaWVzEgwKBHN0ZXAYBSABKA1CDAoKX2NvbnRhaW5lciJWCgxDb250YWluZXJSb3cSDQoFYXNzZXQYASABKAkSDgoGc3lzdGVtGAIgASgJEicKCWNvbnRhaW5lchgDIAEoCzIULnRpbWlrYS52MS5Db250YWluZXIiRQoWTGlzdENvbnRhaW5lcnNSZXNwb25zZRIrCgpjb250YWluZXJzGAEgAygLMhcudGltaWthLnYxLkNvbnRhaW5lclJvdyJBChRDb250YWluZXJMb2dzUmVxdWVzdBINCgVhc3NldBgBIAEoCRIMCgRuYW1lGAIgASgJEgwKBHRhaWwYAyABKA0iOAoVQ29udGFpbmVyTG9nc1Jlc3BvbnNlEgwKBHRleHQYASABKAkSEQoJdHJ1bmNhdGVkGAIgASgIIkUKFkNvbnRhaW5lckFjdGlvblJlcXVlc3QSDQoFYXNzZXQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZhY3Rpb24YAyABKAkiNQoXQ29udGFpbmVyQWN0aW9uUmVzcG9uc2USCgoCb2sYASABKAgSDgoGb3V0cHV0GAIgASgJIoIBCg9Db250YWluZXJTZXJpZXMSDAoEbmFtZRgBIAEoCRILCgNjcHUYAiADKAESCwoDbWVtGAMgAygBEgoKAnJ4GAQgAygBEgoKAnR4GAUgAygBEg8KB2lvX3JlYWQYBiADKAESEAoIaW9fd3JpdGUYByADKAESDAoEcGlkcxgIIAMoASKJBAoGTGF0ZXN0EhAKA2NwdRgBIAEoAUgAiAEBEhAKA21lbRgCIAEoAUgBiAEBEhAKCG1lbV91c2VkGAMgASgEEhEKCW1lbV90b3RhbBgEIAEoBBIRCgRzd2FwGAUgASgBSAKIAQESEQoEZGlzaxgGIAEoAUgDiAEBEhEKCWRpc2tfdXNlZBgHIAEoBBISCgpkaXNrX3RvdGFsGAggASgEEg8KAnJ4GAkgASgBSASIAQESDwoCdHgYCiABKAFIBYgBARISCgVsb2FkMRgLIAEoAUgGiAEBEhIKBWxvYWQ1GAwgASgBSAeIAQESEwoGbG9hZDE1GA0gASgBSAiIAQESEQoEdGVtcBgOIAEoAUgJiAEBEhQKB2lvX3JlYWQYDyABKAFICogBARIVCghpb193cml0ZRgQIAEoAUgLiAEBEg4KBnVwdGltZRgRIAEoBBIKCgJvcxgSIAEoCRIOCgZrZXJuZWwYEyABKAkSEQoJY3B1X21vZGVsGBQgASgJEgwKBGNwdXMYFSABKA0SDAoEdGltZRgWIAEoCUIGCgRfY3B1QgYKBF9tZW1CBwoFX3N3YXBCBwoFX2Rpc2tCBQoDX3J4QgUKA190eEIICgZfbG9hZDFCCAoGX2xvYWQ1QgkKB19sb2FkMTVCBwoFX3RlbXBCCgoIX2lvX3JlYWRCCwoJX2lvX3dyaXRlIkIKBERpc2sSDgoGZGV2aWNlGAEgASgJEg0KBW1vdW50GAIgASgJEg0KBXRvdGFsGAMgASgEEgwKBHVzZWQYBCABKAQi6AIKCUNvbnRhaW5lchIMCgRuYW1lGAEgASgJEg0KBXN0YXRlGAIgASgJEhAKA2NwdRgDIAEoAUgAiAEBEgsKA21lbRgEIAEoBBINCgVpbWFnZRgFIAEoCRIOCgZzdGF0dXMYBiABKAkSDQoFcG9ydHMYByABKAkSDgoGaGVhbHRoGAggASgJEhEKCW1lbV9saW1pdBgJIAEoBBIPCgJyeBgKIAEoAUgBiAEBEg8KAnR4GAsgASgBSAKIAQESDwoHcnVudGltZRgMIAEoCRIUCgdpb19yZWFkGA0gASgBSAOIAQESFQoIaW9fd3JpdGUYDiABKAFIBIgBARIRCgRwaWRzGA8gASgNSAWIAQESDwoHc2l6ZV9ydxgQIAEoBBISCgpzaXplX3RvdGFsGBEgASgEQgYKBF9jcHVCBQoDX3J4QgUKA190eEIKCghfaW9fcmVhZEILCglfaW9fd3JpdGVCBwoFX3BpZHMiPwoJQWxlcnRSdWxlEg4KBm1ldHJpYxgBIAEoCRIRCgl0aHJlc2hvbGQYAiABKAESDwoHbWludXRlcxgDIAEoDSJFCgZGaXJpbmcSDgoGbWV0cmljGAEgASgJEg0KBXNpbmNlGAIgASgJEhIKBXZhbHVlGAMgASgBSACIAQFCCAoGX3ZhbHVlIqUDCgZTeXN0ZW0SDQoFYXNzZXQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRob3N0GAMgASgJEgwKBHRhZ3MYBCADKAkSDwoHYWNjb3VudBgFIAEoCRIOCgZzdGF0dXMYBiABKAkSEgoFc2luY2UYByABKAlIAIgBARISCgVlcnJvchgIIAEoCUgBiAEBEiYKBmxhdGVzdBgJIAEoCzIRLnRpbWlrYS52MS5MYXRlc3RIAogBARINCgVzcGFyaxgKIAMoARIhCgZmaXJpbmcYCyADKAsyES50aW1pa2EudjEuRmlyaW5nEhoKEmNvbnRhaW5lcnNfcnVubmluZxgMIAEoDRIYChBjb250YWluZXJzX3RvdGFsGA0gASgNEhQKDGZhaWxlZF91bml0cxgOIAEoDRIXCgpsYXN0X2Vycm9yGA8gASgJSAOIAQESGgoNbGFzdF9lcnJvcl9hdBgQIAEoCUgEiAEBQggKBl9zaW5jZUIICgZfZXJyb3JCCQoHX2xhdGVzdEINCgtfbGFzdF9lcnJvckIQCg5fbGFzdF9lcnJvcl9hdCJWCglBdmFpbGFibGUSDQoFYXNzZXQYASABKAkSDAoEbmFtZRgCIAEoCRIMCgRob3N0GAMgASgJEgwKBHRhZ3MYBCADKAkSEAoIYWNjb3VudHMYBSADKAkidAoTTGlzdFN5c3RlbXNSZXNwb25zZRIiCgdzeXN0ZW1zGAEgAygLMhEudGltaWthLnYxLlN5c3RlbRInCglhdmFpbGFibGUYAiADKAsyFC50aW1pa2EudjEuQXZhaWxhYmxlEhAKCGludGVydmFsGAMgASgNIjAKEEdldFN5c3RlbVJlcXVlc3QSDQoFYXNzZXQYASABKAkSDQoFcmFuZ2UYAiABKAkiKAoGU2VyaWVzEg4KBm1ldHJpYxgBIAEoCRIOCgZ2YWx1ZXMYAiADKAEiyAIKDFN5c3RlbURldGFpbBIhCgZzeXN0ZW0YASABKAsyES50aW1pa2EudjEuU3lzdGVtEh4KBWRpc2tzGAIgAygLMg8udGltaWthLnYxLkRpc2sSKAoKY29udGFpbmVycxgDIAMoCzIULnRpbWlrYS52MS5Db250YWluZXISGQoRZmFpbGVkX3VuaXRfbmFtZXMYBCADKAkSIwoFcnVsZXMYBSADKAsyFC50aW1pa2EudjEuQWxlcnRSdWxlEhUKDWRlZmF1bHRfcnVsZXMYBiABKAgSDQoFdGltZXMYByADKAMSIQoGc2VyaWVzGAggAygLMhEudGltaWthLnYxLlNlcmllcxIMCgRzdGVwGAkgASgNEjQKEGNvbnRhaW5lcl9zZXJpZXMYCiADKAsyGi50aW1pa2EudjEuQ29udGFpbmVyU2VyaWVzIkgKFFNldE1vbml0b3JpbmdSZXF1ZXN0Eg4KBmFzc2V0cxgBIAMoCRIPCgdlbmFibGVkGAIgASgIEg8KB2FjY291bnQYAyABKAkiWAoMU3lzdGVtQWxlcnRzEg0KBWFzc2V0GAEgASgJEhQKDHVzZV9kZWZhdWx0cxgCIAEoCBIjCgVydWxlcxgDIAMoCzIULnRpbWlrYS52MS5BbGVydFJ1bGUicwoPTW9uaXRvclNldHRpbmdzEiYKCGRlZmF1bHRzGAEgAygLMhQudGltaWthLnYxLkFsZXJ0UnVsZRImCglub3RpZmllcnMYAiADKAsyEy50aW1pa2EudjEuTm90aWZpZXISEAoIaW50ZXJ2YWwYAyABKA0iagoTU2F2ZU1vbml0b3JTZXR0aW5ncxImCghkZWZhdWx0cxgBIAMoCzIULnRpbWlrYS52MS5BbGVydFJ1bGUSKwoJbm90aWZpZXJzGAIgAygLMhgudGltaWthLnYxLk5vdGlmaWVySW5wdXQiQAoSTW9uaXRvclRlc3RSZXF1ZXN0EioKCG5vdGlmaWVyGAEgASgLMhgudGltaWthLnYxLk5vdGlmaWVySW5wdXQyyAcKDk1vbml0b3JTZXJ2aWNlEkUKC0xpc3RTeXN0ZW1zEhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5Gh4udGltaWthLnYxLkxpc3RTeXN0ZW1zUmVzcG9uc2USQQoJR2V0U3lzdGVtEhsudGltaWthLnYxLkdldFN5c3RlbVJlcXVlc3QaFy50aW1pa2EudjEuU3lzdGVtRGV0YWlsEkgKDVNldE1vbml0b3JpbmcSHy50aW1pa2EudjEuU2V0TW9uaXRvcmluZ1JlcXVlc3QaFi5nb29nbGUucHJvdG9idWYuRW1wdHkSQgoPU2V0U3lzdGVtQWxlcnRzEhcudGltaWthLnYxLlN5c3RlbUFsZXJ0cxoWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRJBCgtHZXRTZXR0aW5ncxIWLmdvb2dsZS5wcm90b2J1Zi5FbXB0eRoaLnRpbWlrYS52MS5Nb25pdG9yU2V0dGluZ3MSSgoMU2F2ZVNldHRpbmdzEh4udGltaWthLnYxLlNhdmVNb25pdG9yU2V0dGluZ3MaGi50aW1pa2EudjEuTW9uaXRvclNldHRpbmdzEk4KDFRlc3ROb3RpZmllchIdLnRpbWlrYS52MS5Nb25pdG9yVGVzdFJlcXVlc3QaHy50aW1pa2EudjEuVGVzdE5vdGlmaWVyUmVzcG9uc2USSwoOTGlzdENvbnRhaW5lcnMSFi5nb29nbGUucHJvdG9idWYuRW1wdHkaIS50aW1pa2EudjEuTGlzdENvbnRhaW5lcnNSZXNwb25zZRJSCg1Db250YWluZXJMb2dzEh8udGltaWthLnYxLkNvbnRhaW5lckxvZ3NSZXF1ZXN0GiAudGltaWthLnYxLkNvbnRhaW5lckxvZ3NSZXNwb25zZRJYCg9Db250YWluZXJBY3Rpb24SIS50aW1pa2EudjEuQ29udGFpbmVyQWN0aW9uUmVxdWVzdBoiLnRpbWlrYS52MS5Db250YWluZXJBY3Rpb25SZXNwb25zZRJQChFHZXRDb250YWluZXJVc2FnZRIgLnRpbWlrYS52MS5Db250YWluZXJVc2FnZVJlcXVlc3QaGS50aW1pa2EudjEuQ29udGFpbmVyVXNhZ2USNgoGR2V0TWFwEhUudGltaWthLnYxLk1hcFJlcXVlc3QaFS50aW1pa2EudjEuTmV0d29ya01hcBI6CgxTZXRNYXBNZXRob2QSFC50aW1pa2EudjEuTWFwTWV0aG9kGhQudGltaWthLnYxLk1hcE1ldGhvZGIGcHJvdG8z", [file_google_protobuf_empty, file_timika_v1_automation]);
+
+/**
+ * @generated from message timika.v1.MapMethod
+ */
+export type MapMethod = Message<"timika.v1.MapMethod"> & {
+  /**
+   * vm · api
+   *
+   * @generated from field: string method = 1;
+   */
+  method: string;
+};
+
+/**
+ * Describes the message timika.v1.MapMethod.
+ * Use `create(MapMethodSchema)` to create a new message.
+ */
+export const MapMethodSchema: GenMessage<MapMethod> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 0);
+
+/**
+ * A cloud your servers say they run in.
+ *
+ * @generated from message timika.v1.DetectedCloud
+ */
+export type DetectedCloud = Message<"timika.v1.DetectedCloud"> & {
+  /**
+   * tencent · aws · gcp · azure
+   *
+   * @generated from field: string provider = 1;
+   */
+  provider: string;
+
+  /**
+   * @generated from field: repeated string regions = 2;
+   */
+  regions: string[];
+
+  /**
+   * @generated from field: repeated string servers = 3;
+   */
+  servers: string[];
+
+  /**
+   * A key for it is set up (Cloud API).
+   *
+   * @generated from field: bool connected = 4;
+   */
+  connected: boolean;
+};
+
+/**
+ * Describes the message timika.v1.DetectedCloud.
+ * Use `create(DetectedCloudSchema)` to create a new message.
+ */
+export const DetectedCloudSchema: GenMessage<DetectedCloud> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 1);
+
+/**
+ * @generated from message timika.v1.MapRequest
+ */
+export type MapRequest = Message<"timika.v1.MapRequest"> & {
+  /**
+   * Connections seen within: 1h · 24h (default) · 7d · 30d
+   *
+   * @generated from field: string range = 1;
+   */
+  range: string;
+};
+
+/**
+ * Describes the message timika.v1.MapRequest.
+ * Use `create(MapRequestSchema)` to create a new message.
+ */
+export const MapRequestSchema: GenMessage<MapRequest> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 2);
+
+/**
+ * @generated from message timika.v1.MapPort
+ */
+export type MapPort = Message<"timika.v1.MapPort"> & {
+  /**
+   * @generated from field: uint32 port = 1;
+   */
+  port: number;
+
+  /**
+   * tcp · udp
+   *
+   * @generated from field: string proto = 2;
+   */
+  proto: string;
+
+  /**
+   * The address it is bound to, or how a container's port is reached.
+   *
+   * @generated from field: string bind = 3;
+   */
+  bind: string;
+
+  /**
+   * Only reachable from the server (or container network) itself.
+   *
+   * @generated from field: bool local = 4;
+   */
+  local: boolean;
+};
+
+/**
+ * Describes the message timika.v1.MapPort.
+ * Use `create(MapPortSchema)` to create a new message.
+ */
+export const MapPortSchema: GenMessage<MapPort> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 3);
+
+/**
+ * @generated from message timika.v1.MapNode
+ */
+export type MapNode = Message<"timika.v1.MapNode"> & {
+  /**
+   * s:<server> · p:<server>:<process> · c:<server>:<container> · x:<address> · internet ·
+   * g:<source> · i:<source>:<item>
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * server · process · container · external · internet ·
+   * cloud · cluster (a source's card) · vm · lb · nat · node · ingress · service · workload
+   *
+   * @generated from field: string kind = 2;
+   */
+  kind: string;
+
+  /**
+   * @generated from field: string label = 3;
+   */
+  label: string;
+
+  /**
+   * The server it is on (empty for external / internet).
+   *
+   * @generated from field: string asset = 4;
+   */
+  asset: string;
+
+  /**
+   * @generated from field: string server = 5;
+   */
+  server: string;
+
+  /**
+   * server: its host · container: its image
+   *
+   * @generated from field: string detail = 6;
+   */
+  detail: string;
+
+  /**
+   * @generated from field: repeated string addresses = 7;
+   */
+  addresses: string[];
+
+  /**
+   * @generated from field: repeated timika.v1.MapPort ports = 8;
+   */
+  ports: MapPort[];
+
+  /**
+   * server: pending · up · down · container: running · exited …
+   *
+   * @generated from field: string state = 9;
+   */
+  state: string;
+
+  /**
+   * A container's compose project.
+   *
+   * @generated from field: string project = 10;
+   */
+  project: string;
+
+  /**
+   * external: an address on the internet (not a private network).
+   * lb · service · ingress · vm: reachable from the internet.
+   *
+   * @generated from field: bool public = 11;
+   */
+  public: boolean;
+
+  /**
+   * The card it is drawn in: a server (s:<id>) or a source (g:<id>).
+   *
+   * @generated from field: string group = 12;
+   */
+  group: string;
+
+  /**
+   * More to show, as "Label: value".
+   *
+   * @generated from field: repeated string attrs = 13;
+   */
+  attrs: string[];
+
+  /**
+   * A zone or region; a namespace.
+   *
+   * @generated from field: string scope = 14;
+   */
+  scope: string;
+};
+
+/**
+ * Describes the message timika.v1.MapNode.
+ * Use `create(MapNodeSchema)` to create a new message.
+ */
+export const MapNodeSchema: GenMessage<MapNode> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 4);
+
+/**
+ * @generated from message timika.v1.MapEdge
+ */
+export type MapEdge = Message<"timika.v1.MapEdge"> & {
+  /**
+   * @generated from field: string from = 1;
+   */
+  from: string;
+
+  /**
+   * @generated from field: string to = 2;
+   */
+  to: string;
+
+  /**
+   * The port on the receiving side.
+   *
+   * @generated from field: uint32 port = 3;
+   */
+  port: number;
+
+  /**
+   * A connection was seen / nginx is configured to forward there.
+   *
+   * @generated from field: bool observed = 4;
+   */
+  observed: boolean;
+
+  /**
+   * @generated from field: bool declared = 5;
+   */
+  declared: boolean;
+
+  /**
+   * @generated from field: string from_process = 6;
+   */
+  fromProcess: string;
+
+  /**
+   * @generated from field: string to_process = 7;
+   */
+  toProcess: string;
+
+  /**
+   * @generated from field: string first_seen = 8;
+   */
+  firstSeen: string;
+
+  /**
+   * @generated from field: string last_seen = 9;
+   */
+  lastSeen: string;
+
+  /**
+   * Readings it was seen in.
+   *
+   * @generated from field: uint32 seen = 10;
+   */
+  seen: number;
+
+  /**
+   * Most connections (or distinct clients) at once.
+   *
+   * @generated from field: uint32 peak = 11;
+   */
+  peak: number;
+
+  /**
+   * "published port 8080 → 3000"
+   *
+   * @generated from field: string note = 12;
+   */
+  note: string;
+
+  /**
+   * nginx sites that forward along this edge.
+   *
+   * @generated from field: repeated string sites = 13;
+   */
+  sites: string[];
+
+  /**
+   * @generated from field: bool tls = 14;
+   */
+  tls: boolean;
+
+  /**
+   * What says so when it is configured: nginx · AWS · Kubernetes …
+   *
+   * @generated from field: string declared_by = 15;
+   */
+  declaredBy: string;
+};
+
+/**
+ * Describes the message timika.v1.MapEdge.
+ * Use `create(MapEdgeSchema)` to create a new message.
+ */
+export const MapEdgeSchema: GenMessage<MapEdge> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 5);
+
+/**
+ * @generated from message timika.v1.NetworkMap
+ */
+export type NetworkMap = Message<"timika.v1.NetworkMap"> & {
+  /**
+   * @generated from field: repeated timika.v1.MapNode nodes = 1;
+   */
+  nodes: MapNode[];
+
+  /**
+   * @generated from field: repeated timika.v1.MapEdge edges = 2;
+   */
+  edges: MapEdge[];
+
+  /**
+   * @generated from field: string collected_at = 3;
+   */
+  collectedAt: string;
+
+  /**
+   * What could not be seen, and why.
+   *
+   * @generated from field: repeated string notes = 4;
+   */
+  notes: string[];
+
+  /**
+   * vm (the VMs only) · api (and the cloud providers' APIs)
+   *
+   * @generated from field: string method = 5;
+   */
+  method: string;
+
+  /**
+   * @generated from field: repeated timika.v1.DetectedCloud detected = 6;
+   */
+  detected: DetectedCloud[];
+};
+
+/**
+ * Describes the message timika.v1.NetworkMap.
+ * Use `create(NetworkMapSchema)` to create a new message.
+ */
+export const NetworkMapSchema: GenMessage<NetworkMap> = /*@__PURE__*/
+  messageDesc(file_timika_v1_monitor, 6);
 
 /**
  * @generated from message timika.v1.ContainerUsageRequest
@@ -43,7 +409,7 @@ export type ContainerUsageRequest = Message<"timika.v1.ContainerUsageRequest"> &
  * Use `create(ContainerUsageRequestSchema)` to create a new message.
  */
 export const ContainerUsageRequestSchema: GenMessage<ContainerUsageRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 0);
+  messageDesc(file_timika_v1_monitor, 7);
 
 /**
  * @generated from message timika.v1.ContainerUsage
@@ -84,7 +450,7 @@ export type ContainerUsage = Message<"timika.v1.ContainerUsage"> & {
  * Use `create(ContainerUsageSchema)` to create a new message.
  */
 export const ContainerUsageSchema: GenMessage<ContainerUsage> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 1);
+  messageDesc(file_timika_v1_monitor, 8);
 
 /**
  * @generated from message timika.v1.ContainerRow
@@ -111,7 +477,7 @@ export type ContainerRow = Message<"timika.v1.ContainerRow"> & {
  * Use `create(ContainerRowSchema)` to create a new message.
  */
 export const ContainerRowSchema: GenMessage<ContainerRow> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 2);
+  messageDesc(file_timika_v1_monitor, 9);
 
 /**
  * @generated from message timika.v1.ListContainersResponse
@@ -128,7 +494,7 @@ export type ListContainersResponse = Message<"timika.v1.ListContainersResponse">
  * Use `create(ListContainersResponseSchema)` to create a new message.
  */
 export const ListContainersResponseSchema: GenMessage<ListContainersResponse> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 3);
+  messageDesc(file_timika_v1_monitor, 10);
 
 /**
  * @generated from message timika.v1.ContainerLogsRequest
@@ -157,7 +523,7 @@ export type ContainerLogsRequest = Message<"timika.v1.ContainerLogsRequest"> & {
  * Use `create(ContainerLogsRequestSchema)` to create a new message.
  */
 export const ContainerLogsRequestSchema: GenMessage<ContainerLogsRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 4);
+  messageDesc(file_timika_v1_monitor, 11);
 
 /**
  * @generated from message timika.v1.ContainerLogsResponse
@@ -179,7 +545,7 @@ export type ContainerLogsResponse = Message<"timika.v1.ContainerLogsResponse"> &
  * Use `create(ContainerLogsResponseSchema)` to create a new message.
  */
 export const ContainerLogsResponseSchema: GenMessage<ContainerLogsResponse> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 5);
+  messageDesc(file_timika_v1_monitor, 12);
 
 /**
  * @generated from message timika.v1.ContainerActionRequest
@@ -206,7 +572,7 @@ export type ContainerActionRequest = Message<"timika.v1.ContainerActionRequest">
  * Use `create(ContainerActionRequestSchema)` to create a new message.
  */
 export const ContainerActionRequestSchema: GenMessage<ContainerActionRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 6);
+  messageDesc(file_timika_v1_monitor, 13);
 
 /**
  * @generated from message timika.v1.ContainerActionResponse
@@ -228,7 +594,7 @@ export type ContainerActionResponse = Message<"timika.v1.ContainerActionResponse
  * Use `create(ContainerActionResponseSchema)` to create a new message.
  */
 export const ContainerActionResponseSchema: GenMessage<ContainerActionResponse> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 7);
+  messageDesc(file_timika_v1_monitor, 14);
 
 /**
  * One container's history, aligned with SystemDetail.times (NaN = no reading).
@@ -286,7 +652,7 @@ export type ContainerSeries = Message<"timika.v1.ContainerSeries"> & {
  * Use `create(ContainerSeriesSchema)` to create a new message.
  */
 export const ContainerSeriesSchema: GenMessage<ContainerSeries> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 8);
+  messageDesc(file_timika_v1_monitor, 15);
 
 /**
  * @generated from message timika.v1.Latest
@@ -416,7 +782,7 @@ export type Latest = Message<"timika.v1.Latest"> & {
  * Use `create(LatestSchema)` to create a new message.
  */
 export const LatestSchema: GenMessage<Latest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 9);
+  messageDesc(file_timika_v1_monitor, 16);
 
 /**
  * @generated from message timika.v1.Disk
@@ -448,7 +814,7 @@ export type Disk = Message<"timika.v1.Disk"> & {
  * Use `create(DiskSchema)` to create a new message.
  */
 export const DiskSchema: GenMessage<Disk> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 10);
+  messageDesc(file_timika_v1_monitor, 17);
 
 /**
  * @generated from message timika.v1.Container
@@ -561,7 +927,7 @@ export type Container = Message<"timika.v1.Container"> & {
  * Use `create(ContainerSchema)` to create a new message.
  */
 export const ContainerSchema: GenMessage<Container> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 11);
+  messageDesc(file_timika_v1_monitor, 18);
 
 /**
  * @generated from message timika.v1.AlertRule
@@ -594,7 +960,7 @@ export type AlertRule = Message<"timika.v1.AlertRule"> & {
  * Use `create(AlertRuleSchema)` to create a new message.
  */
 export const AlertRuleSchema: GenMessage<AlertRule> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 12);
+  messageDesc(file_timika_v1_monitor, 19);
 
 /**
  * @generated from message timika.v1.Firing
@@ -621,7 +987,7 @@ export type Firing = Message<"timika.v1.Firing"> & {
  * Use `create(FiringSchema)` to create a new message.
  */
 export const FiringSchema: GenMessage<Firing> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 13);
+  messageDesc(file_timika_v1_monitor, 20);
 
 /**
  * @generated from message timika.v1.System
@@ -723,7 +1089,7 @@ export type System = Message<"timika.v1.System"> & {
  * Use `create(SystemSchema)` to create a new message.
  */
 export const SystemSchema: GenMessage<System> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 14);
+  messageDesc(file_timika_v1_monitor, 21);
 
 /**
  * @generated from message timika.v1.Available
@@ -760,7 +1126,7 @@ export type Available = Message<"timika.v1.Available"> & {
  * Use `create(AvailableSchema)` to create a new message.
  */
 export const AvailableSchema: GenMessage<Available> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 15);
+  messageDesc(file_timika_v1_monitor, 22);
 
 /**
  * @generated from message timika.v1.ListSystemsResponse
@@ -789,7 +1155,7 @@ export type ListSystemsResponse = Message<"timika.v1.ListSystemsResponse"> & {
  * Use `create(ListSystemsResponseSchema)` to create a new message.
  */
 export const ListSystemsResponseSchema: GenMessage<ListSystemsResponse> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 16);
+  messageDesc(file_timika_v1_monitor, 23);
 
 /**
  * @generated from message timika.v1.GetSystemRequest
@@ -813,7 +1179,7 @@ export type GetSystemRequest = Message<"timika.v1.GetSystemRequest"> & {
  * Use `create(GetSystemRequestSchema)` to create a new message.
  */
 export const GetSystemRequestSchema: GenMessage<GetSystemRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 17);
+  messageDesc(file_timika_v1_monitor, 24);
 
 /**
  * @generated from message timika.v1.Series
@@ -837,7 +1203,7 @@ export type Series = Message<"timika.v1.Series"> & {
  * Use `create(SeriesSchema)` to create a new message.
  */
 export const SeriesSchema: GenMessage<Series> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 18);
+  messageDesc(file_timika_v1_monitor, 25);
 
 /**
  * @generated from message timika.v1.SystemDetail
@@ -905,7 +1271,7 @@ export type SystemDetail = Message<"timika.v1.SystemDetail"> & {
  * Use `create(SystemDetailSchema)` to create a new message.
  */
 export const SystemDetailSchema: GenMessage<SystemDetail> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 19);
+  messageDesc(file_timika_v1_monitor, 26);
 
 /**
  * @generated from message timika.v1.SetMonitoringRequest
@@ -932,7 +1298,7 @@ export type SetMonitoringRequest = Message<"timika.v1.SetMonitoringRequest"> & {
  * Use `create(SetMonitoringRequestSchema)` to create a new message.
  */
 export const SetMonitoringRequestSchema: GenMessage<SetMonitoringRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 20);
+  messageDesc(file_timika_v1_monitor, 27);
 
 /**
  * @generated from message timika.v1.SystemAlerts
@@ -959,7 +1325,7 @@ export type SystemAlerts = Message<"timika.v1.SystemAlerts"> & {
  * Use `create(SystemAlertsSchema)` to create a new message.
  */
 export const SystemAlertsSchema: GenMessage<SystemAlerts> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 21);
+  messageDesc(file_timika_v1_monitor, 28);
 
 /**
  * @generated from message timika.v1.MonitorSettings
@@ -986,7 +1352,7 @@ export type MonitorSettings = Message<"timika.v1.MonitorSettings"> & {
  * Use `create(MonitorSettingsSchema)` to create a new message.
  */
 export const MonitorSettingsSchema: GenMessage<MonitorSettings> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 22);
+  messageDesc(file_timika_v1_monitor, 29);
 
 /**
  * @generated from message timika.v1.SaveMonitorSettings
@@ -1008,7 +1374,7 @@ export type SaveMonitorSettings = Message<"timika.v1.SaveMonitorSettings"> & {
  * Use `create(SaveMonitorSettingsSchema)` to create a new message.
  */
 export const SaveMonitorSettingsSchema: GenMessage<SaveMonitorSettings> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 23);
+  messageDesc(file_timika_v1_monitor, 30);
 
 /**
  * @generated from message timika.v1.MonitorTestRequest
@@ -1025,7 +1391,7 @@ export type MonitorTestRequest = Message<"timika.v1.MonitorTestRequest"> & {
  * Use `create(MonitorTestRequestSchema)` to create a new message.
  */
 export const MonitorTestRequestSchema: GenMessage<MonitorTestRequest> = /*@__PURE__*/
-  messageDesc(file_timika_v1_monitor, 24);
+  messageDesc(file_timika_v1_monitor, 31);
 
 /**
  * Server monitoring, in the spirit of Beszel — but with no agent to install:
@@ -1145,6 +1511,29 @@ export const MonitorService: GenService<{
     methodKind: "unary";
     input: typeof ContainerUsageRequestSchema;
     output: typeof ContainerUsageSchema;
+  },
+  /**
+   * What talks to what: servers, the processes listening on them, containers,
+   * and every connection seen between them (and to the outside), plus what
+   * nginx is configured to forward. Only the servers you may see.
+   *
+   * @generated from rpc timika.v1.MonitorService.GetMap
+   */
+  getMap: {
+    methodKind: "unary";
+    input: typeof MapRequestSchema;
+    output: typeof NetworkMapSchema;
+  },
+  /**
+   * How the map is detected: from the VMs only, or with the cloud providers'
+   * APIs as well (keys under SourceService). Admin only.
+   *
+   * @generated from rpc timika.v1.MonitorService.SetMapMethod
+   */
+  setMapMethod: {
+    methodKind: "unary";
+    input: typeof MapMethodSchema;
+    output: typeof MapMethodSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_timika_v1_monitor, 0);

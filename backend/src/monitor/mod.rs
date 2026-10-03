@@ -237,6 +237,9 @@ pub struct LatestRec {
     pub runtimes: Vec<String>,
     #[serde(default)]
     pub failed_units: Vec<String>,
+    /// nginx on the server itself: (version, running).
+    #[serde(default)]
+    pub nginx: Option<(String, bool)>,
     /// CPU % of the last readings.
     #[serde(default)]
     pub spark: Vec<f32>,
@@ -272,7 +275,7 @@ pub struct Counters {
 impl LatestRec {
     pub fn pending() -> Self {
         let now = Utc::now();
-        Self { status: "pending".into(), since: now, error: None, time: now, numbers: None, disks: vec![], containers: vec![], runtimes: vec![], failed_units: vec![], spark: vec![], firing: vec![], down_notified: false, misses: 0, last_error: None, last_error_at: None, counters: None }
+        Self { status: "pending".into(), since: now, error: None, time: now, numbers: None, disks: vec![], containers: vec![], runtimes: vec![], failed_units: vec![], nginx: None, spark: vec![], firing: vec![], down_notified: false, misses: 0, last_error: None, last_error_at: None, counters: None }
     }
 }
 
@@ -328,6 +331,7 @@ pub async fn remove(core: &Core, asset: &str) -> AppResult<()> {
     deletes.extend(core.list(&format!("monitor/c/{asset}/")).await?);
     deletes.push(system_path(asset));
     deletes.push(latest_path(asset));
+    deletes.push(crate::topology::path(asset));
     core.commit(vec![], deletes, vec![]).await
 }
 

@@ -36,6 +36,109 @@ service MonitorService {
   rpc ContainerAction(ContainerActionRequest) returns (ContainerActionResponse);
   // One container's latest numbers and history for `range`.
   rpc GetContainerUsage(ContainerUsageRequest) returns (ContainerUsage);
+  // What talks to what: servers, the processes listening on them, containers,
+  // and every connection seen between them (and to the outside), plus what
+  // nginx is configured to forward. Only the servers you may see.
+  rpc GetMap(MapRequest) returns (NetworkMap);
+  // How the map is detected: from the VMs only, or with the cloud providers'
+  // APIs as well (keys under SourceService). Admin only.
+  rpc SetMapMethod(MapMethod) returns (MapMethod);
+}
+
+message MapMethod {
+  // vm · api
+  string method = 1;
+}
+
+// A cloud your servers say they run in.
+message DetectedCloud {
+  // tencent · aws · gcp · azure
+  string provider = 1;
+  repeated string regions = 2;
+  repeated string servers = 3;
+  // A key for it is set up (Cloud API).
+  bool connected = 4;
+}
+
+message MapRequest {
+  // Connections seen within: 1h · 24h (default) · 7d · 30d
+  string range = 1;
+}
+
+message MapPort {
+  uint32 port = 1;
+  // tcp · udp
+  string proto = 2;
+  // The address it is bound to, or how a container's port is reached.
+  string bind = 3;
+  // Only reachable from the server (or container network) itself.
+  bool local = 4;
+}
+
+message MapNode {
+  // s:<server> · p:<server>:<process> · c:<server>:<container> · x:<address> · internet ·
+  // g:<source> · i:<source>:<item>
+  string id = 1;
+  // server · process · container · external · internet ·
+  // cloud · cluster (a source's card) · vm · lb · nat · node · ingress · service · workload
+  string kind = 2;
+  string label = 3;
+  // The server it is on (empty for external / internet).
+  string asset = 4;
+  string server = 5;
+  // server: its host · container: its image
+  string detail = 6;
+  repeated string addresses = 7;
+  repeated MapPort ports = 8;
+  // server: pending · up · down · container: running · exited …
+  string state = 9;
+  // A container's compose project.
+  string project = 10;
+  // external: an address on the internet (not a private network).
+  // lb · service · ingress · vm: reachable from the internet.
+  bool public = 11;
+  // The card it is drawn in: a server (s:<id>) or a source (g:<id>).
+  string group = 12;
+  // More to show, as "Label: value".
+  repeated string attrs = 13;
+  // A zone or region; a namespace.
+  string scope = 14;
+}
+
+message MapEdge {
+  string from = 1;
+  string to = 2;
+  // The port on the receiving side.
+  uint32 port = 3;
+  // A connection was seen / nginx is configured to forward there.
+  bool observed = 4;
+  bool declared = 5;
+  string from_process = 6;
+  string to_process = 7;
+  string first_seen = 8;
+  string last_seen = 9;
+  // Readings it was seen in.
+  uint32 seen = 10;
+  // Most connections (or distinct clients) at once.
+  uint32 peak = 11;
+  // "published port 8080 → 3000"
+  string note = 12;
+  // nginx sites that forward along this edge.
+  repeated string sites = 13;
+  bool tls = 14;
+  // What says so when it is configured: nginx · AWS · Kubernetes …
+  string declared_by = 15;
+}
+
+message NetworkMap {
+  repeated MapNode nodes = 1;
+  repeated MapEdge edges = 2;
+  string collected_at = 3;
+  // What could not be seen, and why.
+  repeated string notes = 4;
+  // vm (the VMs only) · api (and the cloud providers' APIs)
+  string method = 5;
+  repeated DetectedCloud detected = 6;
 }
 
 message ContainerUsageRequest {

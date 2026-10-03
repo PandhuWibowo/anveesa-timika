@@ -165,6 +165,11 @@ impl russh::server::Handler for Target {
             let out = std::fs::read_to_string(self.files_root.join(".timika-metrics")).unwrap_or_else(|_| "unsupported=TestTarget\n".into());
             session.data(channel, out.into_bytes())?;
             0
+        } else if cmd == "sh -s" && input.starts_with("# timika-cloud") {
+            // Where the server is (cloud metadata): what the test put in `.timika-cloud`.
+            let out = std::fs::read_to_string(self.files_root.join(".timika-cloud")).unwrap_or_else(|_| "end=1\n".into());
+            session.data(channel, out.into_bytes())?;
+            0
         } else if cmd.ends_with("sh -s") {
             // `sudo -S` reads the password line first.
             let script = if cmd.starts_with("sudo -S") { input.split_once('\n').map(|x| x.1).unwrap_or("").to_string() } else { input };

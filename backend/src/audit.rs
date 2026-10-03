@@ -618,6 +618,10 @@ pub fn routine(action: &str) -> bool {
             | "MonitorService/GetSettings"
             | "MonitorService/ListContainers"
             | "MonitorService/GetContainerUsage"
+            | "MonitorService/GetMap"
+            | "SourceService/ListSources"
+            | "NginxService/ListInstances"
+            | "NginxService/ListVersions"
             | "ContainerService/ListImages"
             | "ContainerService/ListVolumes"
             | "ClusterService/Configuration"
@@ -635,7 +639,7 @@ pub fn category(action: &str) -> &'static str {
         "sessions"
     } else if action.starts_with("AutomationService/") || action.contains("/v1/automation/") {
         "automation"
-    } else if action.starts_with("MonitorService/") || action.starts_with("ContainerService/") || action.starts_with("NetService/") || action.contains("/v1/containers/") {
+    } else if action.starts_with("MonitorService/") || action.starts_with("ContainerService/") || action.starts_with("NetService/") || action.starts_with("NginxService/") || action.starts_with("SourceService/") || action.contains("/v1/containers/") {
         "servers"
     } else if action.starts_with("KvService/") {
         "secrets"

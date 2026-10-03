@@ -403,6 +403,7 @@ impl BastionService for Ctx {
         let asset = bastion::get_asset(core, id).await?;
         let mut deletes: Vec<String> = asset.accounts.iter().map(|a| bastion::cred_path(id, &a.username)).collect();
         deletes.extend(core.list(&bastion::grants_prefix(id)).await?);
+        deletes.extend(core.list(&crate::nginx::history_prefix(id)).await?);
         deletes.push(bastion::asset_path(id));
         core.commit(vec![], deletes, vec![]).await?;
         Ok(reply((), &me))

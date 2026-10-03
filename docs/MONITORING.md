@@ -37,6 +37,9 @@ One read-only POSIX `sh` script per reading (`monitor/collect.rs`), from
 | Disk I/O, network | `/sys/block/*/stat`, `/proc/net/dev` (all interfaces but `lo`), as bytes per second |
 | Load, uptime, OS, kernel, CPU model | `/proc/loadavg`, `/proc/uptime`, `/etc/os-release`, `/proc/cpuinfo` |
 | Temperature | the hottest of `/sys/class/thermal` and `hwmon` sensors |
+| Network (for the [map](MAP.md)) | `ip -o addr`, `ss -tulnp`, `ss -tnp state established`; as root also `nsenter -n ss` per container |
+| Where it is (for the [map](MAP.md), every 10 min) | the cloud's metadata service (only when DMI names a cloud), `ip route`, `/etc/resolv.conf`, `kubectl get --raw /version` |
+| nginx | `nginx -v` and whether it runs — for the *Web → Nginx* page ([NGINX.md](NGINX.md)) |
 | Containers | `docker` / `podman` `ps -a`, `ps -a -s` and `stats --no-stream` (state, CPU %, memory, network, disk I/O, processes, size on disk) |
 | Failed services | `systemctl --failed` |
 

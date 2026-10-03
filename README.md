@@ -66,7 +66,9 @@ With Redis instead: `make redis && make dev` (`STORAGE=redis` is the default in
 | **People** | Users, roles (SSH access · Vault reader · Administrator), 2FA status, server grants |
 | **Audit trail** | Who did what, filterable, live, CSV export, integrity check |
 | **Monitoring** | Every server's CPU, memory, disk, network, load, temperature and failed services, plus **containers** (Docker or Podman: a usage page with CPU, memory, disk, network, disk I/O and processes per container and its history; logs, start / stop / restart), with history (1 h – 90 days) and alerts to Slack / Teams / Telegram. **No agent to install**: read over the SSH access timika already has ([MONITORING.md](docs/MONITORING.md)) |
+| **Map** | An architecture diagram that draws itself: each server's cloud, zone, network and public address (asked of the server, no credentials), servers, listening processes, containers and **every connection seen between them** and to the outside, plus what nginx forwards — detected from the **VMs only** (no credentials) or with the **Cloud API** of AWS / Tencent Cloud / Google Cloud / Azure (a read-only key), plus **Kubernetes**: load balancers, NAT gateways, VMs, ingresses, services and workloads ([SOURCES.md](docs/SOURCES.md)). Click anything for its end-to-end path; a table with first / last seen and CSV export ([MAP.md](docs/MAP.md)) |
 | **Network tools** | Ping, port check, DNS lookup, trace route, HTTP timing, TLS certificate and listening ports — run **from your servers**, several side by side, with a plain verdict; no free-form commands ([NETWORK.md](docs/NETWORK.md)) |
+| **Nginx** | Every nginx on your servers or in containers, found automatically: sites at a glance, config editing with **test → reload, undone when nginx rejects it**, version history in the vault, new sites from templates, on / off, certificate expiry, logs ([NGINX.md](docs/NGINX.md)) |
 | **Containers** | **Docker and Podman** containers on your servers: a **shell inside a container** (recorded), a **file browser** with upload / download of files and folders, logs, details, start / stop / restart · **Images** and **Volumes** with sizes, usage and clean-up ([CONTAINERS.md](docs/CONTAINERS.md)) |
 | **Infrastructure** | Git repositories with Terraform / OpenTofu, Ansible and Pulumi projects found automatically · **Plan → Apply** that exact plan · run options (workspace, destroy, limit, tags, extra vars) · Ansible against timika's servers by tag · code browser · approvals · cron schedules with drift alerts · Slack / Teams / Telegram notifications · CI trigger · push webhooks ([AUTOMATION.md](docs/AUTOMATION.md)) |
 | **My account** | Password and two-factor authentication |
@@ -181,7 +183,10 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 
 - [`docs/ACCESS.md`](docs/ACCESS.md): **servers, terminals, command log, files (SFTP) and archives, sessions, people, roles and the audit trail** — the user & admin guide.
 - [`docs/MONITORING.md`](docs/MONITORING.md): **agentless server monitoring** — what is read, history, alert rules, notifications.
+- [`docs/MAP.md`](docs/MAP.md): **the map** — what is captured, how both ends of a connection are joined, limits.
+- [`docs/SOURCES.md`](docs/SOURCES.md): **clusters and cloud accounts on the map** — what is read, the two ways in, read-only credentials.
 - [`docs/NETWORK.md`](docs/NETWORK.md): **network tools** — ping, ports, DNS, trace, HTTP, TLS from your servers.
+- [`docs/NGINX.md`](docs/NGINX.md): **nginx** — sites, safe config changes, history, certificates, logs.
 - [`docs/CONTAINERS.md`](docs/CONTAINERS.md): **containers, images, volumes (Docker and Podman)** — shell and files inside a container, logs, clean-up.
 - [`docs/AUTOMATION.md`](docs/AUTOMATION.md): **infrastructure from Git** — connect a repository, runner servers, plan → apply, state in the vault, variables & secrets, push webhooks.
 - [`docs/API.md`](docs/API.md): the gRPC API (services, auth, status codes, gRPC-Web, load balancers).
@@ -195,7 +200,7 @@ With Raft, any node accepts any call; followers forward writes to the leader.
 
 ## Project status
 
-timika is open source and pre-1.0: it works and is covered by 320 end-to-end
+timika is open source and pre-1.0: it works and is covered by 333 end-to-end
 scenarios, but it has **not had an independent security audit** and the API may
 still change. Evaluate it before trusting it with production secrets.
 
@@ -215,6 +220,6 @@ report it privately: [SECURITY.md](SECURITY.md).
 |-------|------|
 | Backend | Rust · axum 0.7 · tonic 0.12 (gRPC + gRPC-Web) · tokio · aes-gcm · sharks (Shamir) · redis-rs 0.27 · openraft 0.9 + redb 2 · russh 0.63 + russh-sftp · argon2 · TOTP (RFC 6238) · auto-unseal: Transit / AWS KMS (SigV4) / static |
 | Frontend | Svelte 5 (runes) · Vite 6 · TypeScript · Connect (gRPC-Web, protobuf-es) · TanStack Query · xterm.js · @lucide/svelte |
-| Tests | `make test` (unit + type checks) · `make e2e` — 320 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
+| Tests | `make test` (unit + type checks) · `make e2e` — 333 end-to-end scenarios on real processes ([frontend/e2e](frontend/e2e/README.md)) |
 | Storage | Redis 7 standalone / Sentinel / Cluster **or** integrated Raft |
 | Deploy | Docker · compose (scaled) · Docker Swarm stacks · Helm (Deployment/StatefulSet) · systemd · HAProxy |

@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package timika.v1;
+
+import "google/protobuf/empty.proto";
+
+// Sources for the map: Kubernetes clusters and cloud accounts (AWS, Tencent
+// Cloud, Google Cloud, Azure). Read-only: VMs, load balancers, NAT gateways,
+// nodes, ingresses, services, workloads. Reached through a CLI on a monitored
+// server, or with credentials kept in the vault. Admin only; credentials are
+// never returned.
+service SourceService {
+  rpc ListSources(google.protobuf.Empty) returns (ListSourcesResponse);
+  // Create (no id) or change. Credentials left out keep the stored ones.
+  rpc SaveSource(SaveSourceRequest) returns (SourceInfo);
+  rpc DeleteSource(SourceRef) returns (google.protobuf.Empty);
+  // Read it now; the answer says what was found, or why it failed.
+  rpc RefreshSource(SourceRef) returns (SourceInfo);
+}
+
+message SourceRef {
+  string id = 1;
+}
+
+message SourceCount {
+  // vm · lb · nat · node · ingress · service · workload
+  string kind = 1;
+  uint32 count = 2;
+}
+
+message SourceInfo {
+  string id = 1;
+  string name = 2;
+  // kubernetes · aws · tencent · gcp · azure
+  string kind = 3;
+  // server (a CLI on a monitored server) · vault (credentials here)
+  string access = 4;
+  // server: the monitored server whose CLI is used.
+  string asset = 5;
+  // aws · tencent
+  repeated string regions = 6;
+  // gcp: project · azure: subscription · kubernetes (server): kubectl context
+  string scope = 7;
+  // vault: the API's address when it is not the provider's public one
+  // (kubernetes: the API server).
+  string endpoint = 8;
+  bool has_secret = 9;
+  // The last reading, and what went wrong with it.
+  optional string read_at = 10;
+  string error = 11;
+  repeated SourceCount counts = 12;
+  repeated string notes = 13;
+}
+
+message ListSourcesResponse {
+  repeated SourceInfo sources = 1;
+}
+
+message SaveSourceRequest {
+  SourceInfo source = 1;
+  // vault access — kubernetes: token, ca · aws: access_key_id,
+  // secret_access_key, session_token · tencent: secret_id, secret_key ·
+  // gcp: service_account (the JSON key) · azure: tenant_id, client_id, client_secret
+  map<string, string> secret = 2;
+}

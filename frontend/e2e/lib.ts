@@ -20,6 +20,8 @@ import { AutomationService } from '../src/gen/timika/v1/automation_pb'
 import { MonitorService } from '../src/gen/timika/v1/monitor_pb'
 import { ContainerService } from '../src/gen/timika/v1/containers_pb'
 import { NetService } from '../src/gen/timika/v1/net_pb'
+import { NginxService } from '../src/gen/timika/v1/nginx_pb'
+import { SourceService } from '../src/gen/timika/v1/sources_pb'
 import { Health } from './gen/grpc/health/v1/health_pb'
 
 export { Code, ConnectError }
@@ -216,6 +218,8 @@ function clientsFor(t: Transport) {
     monitor: createClient(MonitorService, t),
     containers: createClient(ContainerService, t),
     net: createClient(NetService, t),
+    nginx: createClient(NginxService, t),
+    sources: createClient(SourceService, t),
     health: createClient(Health, t),
   }
 }

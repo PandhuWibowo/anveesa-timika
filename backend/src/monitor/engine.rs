@@ -44,6 +44,8 @@ struct Mem {
     loaded: bool,
     /// Containers: the current raw bucket, and the last ~hour for roll-ups.
     craw: (i64, CBucket),
+    /// The network map of this system: flows seen so far.
+    topo: Option<crate::topology::Topo>,
     cring: VecDeque<(i64, Vec<(String, CVals)>)>,
 }
 
@@ -164,19 +166,32 @@ pub async fn connect(core: &Core, cfg: &SystemCfg) -> Result<Handle<Pinned>, Str
 /// One reading; the connection is kept for the next one when it worked. A
 /// kept connection that fails (dropped by a firewall, the server restarted
 /// sshd) gets one more try on a fresh one.
-async fn read(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>) -> (String, Option<Handle<Pinned>>, Result<Raw, String>) {
+async fn read(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>, slow: Option<Vec<crate::nginx::Target>>) -> (String, Option<Handle<Pinned>>, Result<Raw, String>) {
     let reused = conn.as_ref().is_some_and(|h| !h.is_closed());
-    let (asset, conn, res) = read_once(core.clone(), cfg.clone(), conn).await;
+    let (asset, conn, res) = read_once(core.clone(), cfg.clone(), conn, slow.as_deref()).await;
     match res {
         Err(first) if reused => {
             tracing::info!(server = %asset, "monitor: reading failed on the kept connection ({first}) — retrying on a new one");
-            read_once(core, cfg, None).await
+            read_once(core, cfg, None, slow.as_deref()).await
         }
         res => (asset, conn, res),
     }
 }
 
-async fn read_once(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>) -> (String, Option<Handle<Pinned>>, Result<Raw, String>) {
+/// What each nginx forwards to, for the map (best effort: a config that can't be read is skipped).
+async fn nginx_routes(handle: &Handle<Pinned>, targets: &[crate::nginx::Target]) -> Vec<crate::topology::Route> {
+    let mut routes = Vec::new();
+    for t in targets {
+        if let Ok((0, out)) = ssh::exec_out(handle, &t.overview_cmd(), b"", Duration::from_secs(20), 1024 * 1024).await {
+            routes.extend(crate::topology::routes(&t.container, &crate::nginx::overview(&out)));
+        }
+    }
+    routes
+}
+
+/// `slow`: also what changes rarely (every ten minutes) — where the server is,
+/// and what each nginx on it forwards to.
+async fn read_once(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>, slow: Option<&[crate::nginx::Target]>) -> (String, Option<Handle<Pinned>>, Result<Raw, String>) {
     let handle = match conn.filter(|h| !h.is_closed()) {
         Some(h) => h,
         None => match connect(&core, &cfg).await {
@@ -187,7 +202,16 @@ async fn read_once(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>
     let limit = Duration::from_secs(interval().clamp(15, 30));
     match ssh::exec_out(&handle, "sh -s", collect::SCRIPT.as_bytes(), limit, 512 * 1024).await {
         Ok((_, out)) => match collect::parse(&out) {
-            Ok(raw) => (cfg.asset, Some(handle), Ok(raw)),
+            Ok(mut raw) => {
+                if let Some(ngx) = slow {
+                    raw.routes = Some(nginx_routes(&handle, ngx).await);
+                    // Best effort: a server that does not answer this is simply "somewhere".
+                    if let Ok((_, out)) = ssh::exec_out(&handle, "sh -s", crate::topology::ENV_SCRIPT.as_bytes(), Duration::from_secs(25), 64 * 1024).await {
+                        raw.env = Some(crate::topology::parse_env(&out));
+                    }
+                }
+                (cfg.asset, Some(handle), Ok(raw))
+            }
             Err(e) => (cfg.asset, Some(handle), Err(e)),
         },
         Err(e) => {
@@ -197,8 +221,20 @@ async fn read_once(core: Arc<Core>, cfg: SystemCfg, conn: Option<Handle<Pinned>>
     }
 }
 
+/// The nginx instances of a system, from its last reading (at most a handful).
+fn nginx_targets(rec: Option<&LatestRec>) -> Vec<crate::nginx::Target> {
+    let Some(rec) = rec else { return Vec::new() };
+    let mut out = Vec::new();
+    if rec.nginx.is_some() {
+        out.push(crate::nginx::Target { container: String::new(), runtime: String::new() });
+    }
+    out.extend(rec.containers.iter().filter(|c| c.state == "running" && crate::nginx::is_nginx_image(&c.image)).take(4).map(|c| crate::nginx::Target { container: c.name.clone(), runtime: c.runtime.clone() }));
+    out
+}
+
 async fn load(core: &Core, asset: &str, m: &mut Mem, now: i64) -> AppResult<()> {
     m.rec = core.get_json(&latest_path(asset)).await?;
+    m.topo = core.get_json(&crate::topology::path(asset)).await?;
     // Rates right after a restart: continue from the stored counters, unless
     // they are too old to mean anything.
     if let Some(c) = m.rec.as_ref().and_then(|r| r.counters).filter(|c| now - c.now < 3600) {
@@ -299,9 +335,11 @@ impl Engine {
                 load(&core, &cfg.asset, m, t).await?;
             }
             let (core, cfg, conn, gate) = (core.clone(), cfg.clone(), m.conn.take(), gate.clone());
+            // Every ten minutes: also what each nginx there is configured to forward to.
+            let slow = m.topo.as_ref().is_none_or(|x| x.routes_due(t)).then(|| nginx_targets(m.rec.as_ref()));
             set.spawn(async move {
                 let _permit = gate.acquire_owned().await;
-                read(core, cfg, conn).await
+                read(core, cfg, conn, slow).await
             });
         }
         let mut results = HashMap::new();
@@ -333,6 +371,8 @@ impl Engine {
                     collect::container_rates(m.prev.as_ref(), &mut raw);
                     let n = numbers(&raw, &collect::rates(m.prev.as_ref(), &raw));
                     let s = sample(t, &n);
+                    // Not known yet what runs here (nginx?): the slow reading is repeated next time.
+                    let first = rec.status != "up";
                     if rec.status != "up" {
                         rec.status = "up".into();
                         rec.since = now;
@@ -350,6 +390,28 @@ impl Engine {
                     rec.containers = raw.containers.clone();
                     rec.runtimes = raw.runtimes.clone();
                     rec.failed_units = raw.failed_units.clone();
+                    rec.nginx = raw.nginx.clone();
+                    // The map: flows seen in this reading, written when something is new.
+                    let topo = m.topo.get_or_insert_with(Default::default);
+                    if let Some(routes) = raw.routes.take() {
+                        topo.routes = routes;
+                        topo.routes_at = if first { 0 } else { t };
+                        topo.saved = 0;
+                    }
+                    if let Some(env) = raw.env.take() {
+                        // A cluster this server can reach joins the map by itself (once: removing it is final).
+                        if env.k8s && !topo.k8s_offered {
+                            topo.k8s_offered = true;
+                            if let Err(e) = crate::sources::offer_cluster(&core, &cfg.asset, &name).await {
+                                tracing::warn!(server = %name, "sources: could not add its cluster: {e}");
+                            }
+                        }
+                        topo.env = Some(env);
+                    }
+                    if topo.absorb(&raw.network, t) {
+                        puts.push((crate::topology::path(&cfg.asset), serde_json::to_vec(topo)?));
+                    }
+                    raw.network = Default::default();
                     rec.counters = Some(super::Counters { now: raw.now, uptime: raw.uptime, cpu: raw.cpu, net: raw.net, io: raw.io });
                     m.prev = Some(raw);
 
@@ -531,6 +593,8 @@ pub fn spawn(core: Arc<Core>) {
                 if let Err(err) = e.tick().await {
                     tracing::warn!("monitor: tick failed: {err}");
                 }
+                // Clusters and cloud accounts, each every few minutes, in the background.
+                crate::sources::tick(&e.core).await;
             } else {
                 // Not collecting: drop connections and state (another instance has them).
                 for (_, m) in e.mem.drain() {

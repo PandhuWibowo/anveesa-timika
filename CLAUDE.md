@@ -54,7 +54,10 @@ before touching storage, crypto or clustering.
    server over SSH. Git gets tokens via env headers and keys via 0600 temp files,
    never on a command line; secret variables are masked in output and never
    returned by the API (automation/, docs/AUTOMATION.md).
-10. **Joining requires the challenge.** A node becomes a voter only via
+10. **Source credentials (cloud keys, cluster tokens) are write-only**: stored through the
+   barrier, never returned by the API or logged, and only ever used for read-only calls
+   (sources/, docs/SOURCES.md).
+11. **Joining requires the challenge.** A node becomes a voter only via
    `join_answer` after decrypting a barrier-encrypted nonce. Keep the single-use and
    TTL checks.
 
@@ -69,7 +72,7 @@ make redis-sentinel-up / redis-cluster-up   # Redis HA rigs with timika inside
 make stop         # free the dev ports
 make gen          # regenerate frontend/src/gen from proto/ (after editing a .proto)
 make test         # gen + cargo test + svelte-check
-make e2e          # 320 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
+make e2e          # 333 end-to-end scenarios on real processes (frontend/e2e, ~1 min)
 make helm-lint    # lint deploy/helm/timika
 ```
 
@@ -95,7 +98,7 @@ backend/src/
   token.rs        token entries, resolve() (expiry, disabled users)
   grpc/           the API: mod.rs (Ctx, who()/Need roles, AppError→Status, router with
                   tonic-web + grpc.health), sys/kv/auth/bastion/cluster/audit/automation/monitor/
-                  containers/net.rs services,
+                  containers/net/nginx/sources.rs services,
                   convert.rs (JSON↔Struct, times), client.rs (node→node + CLI calls)
   seal/           auto-unseal key services: transit (Vault/OpenBao), awskms (SigV4 +
                   credential chain), static; AutoSeal::wrap/unwrap
@@ -123,11 +126,18 @@ backend/src/
                   for files / images / volumes, download tickets
   nettools.rs     network checks from a server (docs/NETWORK.md): ping, port, dns, trace, http, tls,
                   listen — fixed sh scripts, validated arguments as one quoted word, output parsers
+  nginx.rs        nginx on a server or in a container (docs/NGINX.md): overview from `nginx -T`,
+                  config parser, safe apply scripts (write → nginx -t → reload, or undo), history
+  topology.rs     the map (docs/MAP.md): flows from each reading (listeners, connections, container
+                  networks), resolved across servers into nodes and edges; nginx routes
+  sources/        clusters and cloud accounts for the map (docs/SOURCES.md): mod.rs (config, write-only
+                  secrets, one `Inventory`), fetch.rs (CLI over SSH, or the API: SigV4, TC3, Google JWT,
+                  Azure token; XML→JSON), kube / aws / tencent / gcp / azure.rs (one parser each)
   kv.rs           KV v2 engine: versions, CAS, soft delete, destroy, folder listing
   routes/         plain HTTP only: /v1/sys/health, the /v1/bastion/connect WebSocket,
                   /v1/bastion/files/upload (PUT) and /download (GET, signed link),
                   /v1/automation/hooks/<repo> (push webhooks, HMAC / token), /v1/automation/trigger/<repo> (CI)
-proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation, monitor, containers, net)
+proto/timika/v1/  the API contract (sys, kv, auth, bastion, cluster, audit, automation, monitor, containers, net, nginx, sources)
 frontend/src/
   App.svelte      shell (sidebar/topbar/statusbar) or Gate when sealed/uninit/no token
   gen/            generated from proto (`bun run gen`: buf + protoc-gen-es) — don't edit
@@ -145,7 +155,9 @@ frontend/src/
                   (+ Chart, RulesEditor, MonitorSettings, ContainerPanel, ContainerLogs), Containers /
                   ContainerDetail (+ ContainerFiles), Images, Volumes,
                   ContainerUsage (+ ContainerUsageDetail; Monitoring → Containers, #/usage),
-                  NetTools (Access → Network tools; lib/net.svelte.ts)
+                  NetTools (Access → Network tools; lib/net.svelte.ts),
+                  NginxRoute / NginxInstance (+ NginxEditor; Web → Nginx),
+                  NetworkMap (+ MapDiagram, MapSources, lib/map.ts; Monitoring → Map)
 deploy/helm/timika/   backend=raft → StatefulSet + headless svc; backend=redis → Deployment
 deploy/scale/         compose scale-out + seal-aware haproxy.cfg
 deploy/swarm/         Swarm stacks (redis / raft)
@@ -176,7 +188,7 @@ scripts/raft-dev.sh   local 3-node cluster
 - New API: add the RPC to the `.proto`, implement it in `grpc/<service>.rs` starting
   with `self.who(&req, Need::…)` (or `self.public()`), return `reply(msg, &me)` so the
   audit log knows the caller, then `bun run gen` for the UI. Don't add REST routes.
-- Commands sent to a server (`containers.rs`, `nettools.rs`, `bastion/archive.rs`) are built from
+- Commands sent to a server (`containers.rs`, `nettools.rs`, `nginx.rs`, `bastion/archive.rs`) are built from
   fixed templates: validate each value, pass it as one `q()`-quoted word, bound the run (timeout,
   output size). Never a user-supplied command line, and nothing of this runs on the timika host.
 - New backend features must work on **both** storage backends (`storage/mod.rs`).
@@ -199,5 +211,7 @@ snapshot **restore** endpoint · autopilot (dead-server cleanup) · GCP/Azure KM
 seal migration back to Shamir / between KMSs · more secret engines (transit, dynamic DB creds) ·
 bastion: command capture for multi-line pastes, in-browser file editor, folder upload ·
 network tools: saved checks with alerts, account picker ·
+nginx: Let's Encrypt, copy a site to other servers, version diff ·
+map: pod-to-pod traffic, UDP flows, more cloud objects (gateways, endpoints, classic ELB) ·
 infrastructure: container / Kubernetes runners, Terragrunt + script projects, workflows (chained
 projects), IANA time zones, Crossplane / Kubernetes manifests, GitHub App instead of tokens / deploy keys.

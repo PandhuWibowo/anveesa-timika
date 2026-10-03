@@ -285,3 +285,90 @@ scenario('M', 'container usage: disk I/O rate, processes and size on disk per co
   eq((await p.monitor.getContainerUsage({ asset: s.id, name: 'api', range: '1h' })).container?.pids, 9, 'granted → usage is visible')
   await s.t.stop()
 })
+
+scenario('M', 'the map: listeners, containers and connections of every server joined end to end; internet clients counted, not listed; only what you may see', async () => {
+  const web1 = await server()
+  const db1 = await server()
+  const now = Math.floor(Date.now() / 1000)
+  metrics(web1.t, { now, extra: [
+    'ip=10.9.0.1', 'lsn=tcp|0.0.0.0:443|nginx', 'lsn=tcp|0.0.0.0:22|sshd', 'lsn=tcp|0.0.0.0:8080|docker-proxy',
+    'con=|10.9.0.1:443|203.0.113.9:51000|nginx', 'con=|10.9.0.1:443|198.51.100.7:52000|nginx', 'con=|10.9.0.1:40000|127.0.0.1:8080|nginx',
+    'rt=docker', 'ctr=api|running|acme/api:2|Up 2 hours|0.0.0.0:8080->3000/tcp', 'cin=/api|4242|bridge=172.17.0.2,|shop', 'deep=1', 'cls=api|0.0.0.0:3000',
+    'ccn=api|172.17.0.2:41000|10.9.0.2:5432|', 'ccn=api|172.17.0.2:41001|52.1.2.3:443|',
+  ].join('\n') })
+  metrics(db1.t, { now, extra: ['ip=10.9.0.2', 'lsn=tcp|0.0.0.0:5432|postgres', 'lsn=tcp|127.0.0.1:6379|redis-server', 'con=|10.9.0.2:5432|10.9.0.1:41000|postgres', 'con=|10.9.0.2:5432|10.9.0.77:50000|postgres'].join('\n') })
+  await web1.c.monitor.setMonitoring({ assets: [web1.id, db1.id], enabled: true })
+  const mine = (m: { edges: { from: string; to: string }[] }) => m.edges.filter((e) => [e.from, e.to].some((x) => x.includes(web1.id) || x.includes(db1.id)))
+  const m = await waitFor('both servers on the map', async () => { const r = await web1.c.monitor.getMap({ range: '1h' }); return mine(r).length >= 5 && r })
+  const W = web1.id, D = db1.id
+  eq(mine(m).map((e) => `${e.from} -> ${e.to} :${e.port}`).sort(), [
+    `c:${W}:api -> p:${D}:postgres :5432`,
+    `c:${W}:api -> x:52.1.2.3 :443`,
+    `internet -> p:${W}:nginx :443`,
+    `p:${W}:nginx -> c:${W}:api :8080`,
+    `x:10.9.0.77 -> p:${D}:postgres :5432`,
+  ], 'who talks to whom: container → the other server’s process, nginx → the published container, the internet, an unknown client')
+  const edge = (from: string, to: string) => m.edges.find((e) => e.from === from && e.to === to)!
+  eq([edge('internet', `p:${W}:nginx`).peak, edge(`p:${W}:nginx`, `c:${W}:api`).note, edge(`c:${W}:api`, `p:${D}:postgres`).toProcess], [2, 'published port 8080 → 3000', 'postgres'], 'two internet clients as one edge; the published port; the process that answers')
+  ok(mine(m).every((e) => e.observed && !e.declared && e.seen >= 1 && e.firstSeen && e.lastSeen), 'seen, with first and last time')
+  const node = (id: string) => m.nodes.find((n) => n.id === id)!
+  eq([node(`s:${W}`).kind, node(`s:${W}`).addresses, node(`s:${W}`).state], ['server', ['10.9.0.1'], 'up'], 'the server')
+  eq([node(`c:${W}:api`).detail, node(`c:${W}:api`).project, node(`c:${W}:api`).addresses, node(`c:${W}:api`).ports.map((p) => [p.port, p.bind])], ['acme/api:2', 'shop', ['172.17.0.2 (bridge)'], [[3000, 'published on 8080']]], 'the container')
+  eq(node(`p:${D}:redis-server`).ports.map((p) => [p.port, p.local]), [[6379, true]], 'a local-only listener nobody talks to is on the map too')
+  eq([node(`p:${W}:sshd`).ports[0].port, node('x:52.1.2.3').public, node('x:10.9.0.77').public], [22, true, false], 'idle services; public and private outside addresses')
+  ok(!m.nodes.some((n) => n.id.includes('203.0.113.9') || n.label === 'docker-proxy'), 'no internet client by address, no proxy plumbing')
+  await fails(web1.c.monitor.getMap({ range: '2y' }), Code.InvalidArgument)
+
+  // Someone with access to the database server only: the web server is just an address.
+  const name = uniq('map-user')
+  const u = web(web1.node, await createUser(web1.v, name, ['ssh']))
+  eq((await u.monitor.getMap({})).nodes.length, 0, 'no grant → an empty map')
+  await web1.c.bastion.createGrant({ asset: D, subjectType: 'user', subject: name })
+  const part = await u.monitor.getMap({})
+  eq(part.edges.map((e) => `${e.from} -> ${e.to} :${e.port}`).sort(), [`x:10.9.0.1 -> p:${D}:postgres :5432`, `x:10.9.0.77 -> p:${D}:postgres :5432`], 'only their server; the rest by address')
+  ok(!JSON.stringify(part).includes(web1.name), 'no name of a server they may not see')
+  // Stopping monitoring takes the server off the map.
+  await web1.c.monitor.setMonitoring({ assets: [W], enabled: false })
+  ok(!(await web1.c.monitor.getMap({})).nodes.some((n) => n.asset === W), 'gone with its monitoring')
+  await web1.t.stop(); await db1.t.stop()
+})
+
+scenario('M', 'the map knows where a server is without any setup: its cloud, zone and network, its public address, a load balancer in front and a NAT gateway behind', async () => {
+  const web1 = await server()
+  const app1 = await server()
+  const now = Math.floor(Date.now() / 1000)
+  const where = (id: string, priv: string, pub: string) => ['cloud=tencent', `id=${id}`, 'name=demo', 'type=S5.MEDIUM2', 'region=ap-singapore', 'zone=ap-singapore-1', `private=${priv}`, `public=${pub}`, 'vpc=vpc-e2e', 'subnet=subnet-9', 'vpc_cidr=10.7.0.0/16', 'mask=255.255.240.0', pub ? 'public_mode=EIP' : '', 'gw=10.7.0.1', 'dns=183.60.83.19 183.60.82.98', 'k8s=0', `ifc=eth0|${priv}/20`, 'ifc=docker0|172.17.0.1/16', 'route=default|10.7.0.1|eth0', 'route=172.17.0.0/16||docker0', 'end=1', ''].join('\n')
+  writeFileSync(join(web1.t.files, '.timika-cloud'), where('ins-web', '10.7.0.5', '43.156.0.10'))
+  writeFileSync(join(app1.t.files, '.timika-cloud'), where('ins-app', '10.7.0.8', ''))
+  metrics(web1.t, { now, extra: ['ip=10.7.0.5', 'lsn=tcp|0.0.0.0:443|nginx', 'con=|10.7.0.5:443|203.0.113.9:51000|nginx', 'con=|10.7.0.5:443|100.64.1.7:40000|nginx', 'con=|10.7.0.5:443|100.64.9.2:40001|nginx', 'con=|10.7.0.5:41000|10.7.0.8:8080|nginx'].join('\n') })
+  metrics(app1.t, { now, extra: ['ip=10.7.0.8', 'lsn=tcp|0.0.0.0:8080|node', 'con=|10.7.0.8:42000|52.1.2.3:443|node'].join('\n') })
+  await web1.c.monitor.setMonitoring({ assets: [web1.id, app1.id], enabled: true })
+  const W = web1.id, A = app1.id
+  const m = await waitFor('the cloud around both servers', async () => { const r = await web1.c.monitor.getMap({ range: '1h' }); return r.nodes.some((n) => n.id === `i:auto:${W}:lb`) && r.nodes.some((n) => n.id === 'i:auto:tencent:vpc-e2e:nat') && r })
+  const mine = m.edges.filter((e) => [e.from, e.to].some((x) => x.includes(W) || x.includes(A) || x.includes('vpc-e2e')))
+  eq(mine.map((e) => `${e.from} -> ${e.to} :${e.port}${e.observed ? ' seen' : ''}${e.declared ? ` ${e.declaredBy}` : ''}`).sort(), [
+    `i:auto:${W}:lb -> p:${W}:nginx :443 seen`,             // health checks from two addresses: one load balancer
+    `i:auto:${W}:pub -> p:${W}:nginx :443 seen`,            // the internet comes in through the public address
+    `i:auto:tencent:vpc-e2e:nat -> internet :0 Tencent Cloud`,
+    `internet -> i:auto:${W}:pub :443 seen`,
+    `p:${A}:node -> x:52.1.2.3 :443 seen`,
+    `p:${W}:nginx -> p:${A}:node :8080 seen`,
+    `s:${A} -> i:auto:tencent:vpc-e2e:nat :0 Tencent Cloud`, // no public address, yet it reaches the internet
+  ].sort(), 'internet → public address → server → server → NAT gateway → internet')
+  const node = (id: string) => m.nodes.find((n) => n.id === id)!
+  eq(node(`s:${W}`).attrs, ['Tencent Cloud: ins-web · demo · S5.MEDIUM2', 'Zone: ap-singapore-1', 'VPC: vpc-e2e (10.7.0.0/16)', 'Subnet: subnet-9 (10.7.0.0/20)', 'Private address: 10.7.0.5', 'Public address: 43.156.0.10 (EIP)', 'Default gateway: 10.7.0.1', 'Interfaces: eth0 10.7.0.5/20, docker0 172.17.0.1/16', 'Routes: default via 10.7.0.1 (eth0); 172.17.0.0/16 (docker0)', 'DNS: 183.60.83.19, 183.60.82.98'], 'what the server says about itself')
+  eq([node('i:auto:tencent:vpc:vpc-e2e').detail, node('i:auto:tencent:subnet:subnet-9').detail, node('i:auto:tencent:subnet:subnet-9').attrs], ['10.7.0.0/16', '10.7.0.0/20', [`Server: ${web1.name} (10.7.0.5)`, `Server: ${app1.name} (10.7.0.8)`]], 'the VPC and subnet with their ranges')
+  const card = node('g:auto:tencent:vpc-e2e').attrs
+  ok(card.includes(`Load balancer: in front of ${web1.name} (its health checks arrive)`) && card.includes(`Load balancer: none seen in front of ${app1.name} (no health checks arrive)`) && card.includes(`Outbound: ${web1.name} goes out through its own public address 43.156.0.10 — no NAT gateway involved`), `what was looked for, and found or not: ${card}`)
+  eq([node(`s:${W}`).scope, node('g:auto:tencent:vpc-e2e').kind, node('g:auto:tencent:vpc-e2e').label, node(`i:auto:${W}:pub`).kind, node(`i:auto:${W}:pub`).label, node(`i:auto:${W}:lb`).detail, node('i:auto:tencent:vpc-e2e:nat').kind],
+    ['Tencent Cloud · ap-singapore-1', 'cloud', 'Tencent Cloud · ap-singapore', 'pubip', '43.156.0.10', 'inferred from its health checks', 'nat'], 'one card for the cloud network, with what stands between the servers and the internet')
+  ok(!m.nodes.some((n) => n.id.startsWith('x:100.64.')), 'health-check addresses are not listed one by one')
+  // Someone with access to one of them sees its surroundings too: it is their server's own knowledge.
+  const name = uniq('cloud-user')
+  const u = web(web1.node, await createUser(web1.v, name, ['ssh']))
+  await web1.c.bastion.createGrant({ asset: W, subjectType: 'user', subject: name })
+  const part = await u.monitor.getMap({ range: '1h' })
+  ok(part.nodes.some((n) => n.id === `i:auto:${W}:pub`) && !part.nodes.some((n) => n.id.includes(A) || n.kind === 'nat'), 'theirs, not the other server’s')
+  await web1.c.monitor.setMonitoring({ assets: [W, A], enabled: false })
+  await web1.t.stop(); await app1.t.stop()
+})

@@ -1,5 +1,5 @@
 import type { Component } from 'svelte'
-import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText, Workflow, Activity, Container, Gauge, Layers, Database, Network } from '@lucide/svelte'
+import { LayoutDashboard, Server, SquareTerminal, History, Users, ScrollText, Workflow, Activity, Container, Gauge, Layers, Database, Network, Globe, Waypoints } from '@lucide/svelte'
 import { liveCount } from './terminals.svelte'
 
 /** `admin`: administrators only · `vault`: needs vault read access (not the `ssh` role). */
@@ -29,6 +29,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { to: '/monitoring', label: 'Systems', hint: 'CPU, memory, disk, network, containers and alerts for your servers', ico: Activity },
       { to: '/usage', label: 'Containers', hint: 'CPU, memory, disk, network and processes used by every container', ico: Gauge },
+      { to: '/map', label: 'Map', hint: 'What talks to what: servers, processes, containers and every connection between them', ico: Waypoints },
     ],
   },
   {
@@ -37,6 +38,12 @@ export const navGroups: NavGroup[] = [
       { to: '/containers', label: 'Containers', hint: 'Every container: shell, files, logs, start / stop', ico: Container },
       { to: '/images', label: 'Images', hint: 'Container images on your servers (Docker or Podman): size, what uses them, clean up', ico: Layers, admin: true },
       { to: '/volumes', label: 'Volumes', hint: 'Container volumes on your servers (Docker or Podman): size, what uses them, clean up', ico: Database, admin: true },
+    ],
+  },
+  {
+    label: 'Web',
+    items: [
+      { to: '/nginx', label: 'Nginx', hint: 'Sites, config with a safe apply, history, certificates and logs — on a server or in a container', ico: Globe, admin: true },
     ],
   },
   {

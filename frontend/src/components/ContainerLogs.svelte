@@ -1,11 +1,13 @@
 <script lang="ts">
   // The last lines of a container's output (docker / podman logs), refreshed on demand or live.
+  // With `fetcher`, the same viewer shows any other log (an nginx log file).
   import { onMount, tick } from 'svelte'
   import { fade, scale } from 'svelte/transition'
   import { X, Loader2, RefreshCw, Download } from '@lucide/svelte'
   import { monitor, errMsg } from '../lib/api'
 
-  let { asset, name, system, onclose }: { asset: string; name: string; system: string; onclose: () => void } = $props()
+  type Fetcher = (tail: number) => Promise<{ text: string; truncated?: boolean }>
+  let { asset, name, system, onclose, kicker = 'Container logs', fetcher }: { asset: string; name: string; system: string; onclose: () => void; kicker?: string; fetcher?: Fetcher } = $props()
 
   let text = $state('')
   let truncated = $state(false)
@@ -18,10 +20,10 @@
   async function load() {
     busy = true
     try {
-      const r = await monitor.containerLogs({ asset, name, tail })
+      const r = fetcher ? await fetcher(tail) : await monitor.containerLogs({ asset, name, tail })
       const atEnd = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 60
       text = r.text
-      truncated = r.truncated
+      truncated = !!r.truncated
       error = ''
       if (atEnd) { await tick(); el?.scrollTo({ top: el.scrollHeight }) }
     } catch (e) { error = errMsg(e) } finally { busy = false }
@@ -36,7 +38,7 @@
   function download() {
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }))
-    a.download = `${system}-${name}.log`
+    a.download = `${system}-${name.split('/').pop()}${name.endsWith('.log') ? '' : '.log'}`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -50,7 +52,7 @@
   <div class="md" role="dialog" aria-modal="true" transition:scale={{ duration: 140, start: 0.97 }}>
     <header class="md__head">
       <div>
-        <div class="page-kicker">Container logs · {system}</div>
+        <div class="page-kicker">{kicker} · {system}</div>
         <div class="md__title mono">{name}</div>
       </div>
       <div class="md__tools">

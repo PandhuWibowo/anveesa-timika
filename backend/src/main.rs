@@ -7,6 +7,7 @@ mod cli;
 mod config;
 mod containers;
 mod nettools;
+mod nginx;
 mod core;
 mod error;
 mod grpc;
@@ -15,11 +16,13 @@ mod logging;
 mod monitor;
 mod raft;
 mod seal;
+mod sources;
 mod routes;
 mod state;
 mod storage;
 mod tls;
 mod token;
+mod topology;
 
 use std::sync::Arc;
 

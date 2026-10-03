@@ -95,7 +95,7 @@ pub async fn read(core: &Core, path: &str, version: Option<u32>) -> AppResult<Se
 
 /// Run a read-modify-write until its guarded commit wins. With several timika
 /// instances on shared storage, a lost race just re-reads and tries again.
-async fn retrying<T, F, Fut>(mut attempt: F) -> AppResult<T>
+pub async fn retrying<T, F, Fut>(mut attempt: F) -> AppResult<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = AppResult<T>>,

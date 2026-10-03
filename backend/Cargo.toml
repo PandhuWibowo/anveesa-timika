@@ -42,6 +42,8 @@ sharks = "0.5"
 rand = "0.8"
 sha2 = "0.10"
 hmac = "0.12"
+# RS256 for Google service-account sign-in (already in the tree through rustls).
+ring = "0.17"
 hex = "0.4"
 base64 = "0.22"
 zeroize = "1"
